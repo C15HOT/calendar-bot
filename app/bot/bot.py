@@ -16,7 +16,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-
+from .init_bot import bot
 # Google Calendar API Scope
 from app.settings import get_settings
 
@@ -150,4 +150,17 @@ async def send_event_reminders(bot: Bot):  # Pass Bot instance
     # checking their calendars, and sending notifications.
     pass
 
+
+async def start_bot():
+    try:
+        await bot.send_message(settings.admin_id, f'Start bot')
+    except:
+        pass
+
+
+async def stop_bot():
+    try:
+        await bot.send_message(settings.admin_id, f'Stop bot')
+    except:
+        pass
 

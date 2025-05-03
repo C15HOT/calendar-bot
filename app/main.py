@@ -6,7 +6,7 @@ from uvicorn import run
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.bot.init_bot import dp, bot
-from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials
+from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot
 from aiogram.filters import CommandStart, Command
 scheduler = AsyncIOScheduler()
 
@@ -19,13 +19,14 @@ async def lifespan(app: FastAPI):
     dp.message.register(start_handler, CommandStart())
     dp.message.register(auth_handler, Command("auth"))
     dp.message.register(events_handler, Command("events"))
+    await start_bot()
     # Start scheduler
-    scheduler = AsyncIOScheduler()
+    # scheduler = AsyncIOScheduler()
     # scheduler.add_job(send_event_reminders, 'interval', minutes=10, args=(bot,))
     # scheduler.start()  # УБРАТЬ КОММЕНТАРИЙ В ПРОДАКШЕНЕ
-    await dp.start_polling(bot)
+    # await dp.start_polling(bot)
     yield
-
+    await stop_bot()
     # Cleanup code here if needed
     await bot.session.close()
 
@@ -40,7 +41,9 @@ app.add_middleware(CORSMiddleware,
                    allow_credentials=True,
                    allow_methods=['*'],
                    allow_headers=['*'])
-
+@app.get('/test')
+async def test():
+    return {'test: test'}
 # app.include_router(miniapp_router)
 @app.get("/callback")
 async def callback_handler(request: Request):

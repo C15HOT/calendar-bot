@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     bot_token: str
     server_address: str
     is_debug: str
-
+    admin_id: str
 
 
     @property
