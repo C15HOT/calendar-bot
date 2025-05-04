@@ -1,4 +1,4 @@
-
+from aiogram.types import Update
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request, HTTPException
 from starlette.responses import HTMLResponse
@@ -6,7 +6,7 @@ from uvicorn import run
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.bot.init_bot import dp, bot
-from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot
+from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot, user_router
 from aiogram.filters import CommandStart, Command
 
 from app.settings import get_settings
@@ -17,13 +17,13 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    dp.include_router(user_router)
     webhook_url = settings.webhook_url
-    print(webhook_url)
-    # await bot.set_webhook(
-    #     url=webhook_url,
-    #     allowed_updates=dp.resolve_used_update_types(),
-    #     drop_pending_updates=True
-    # )
+    await bot.set_webhook(
+        url=webhook_url,
+        allowed_updates=dp.resolve_used_update_types(),
+        drop_pending_updates=True
+    )
     await start_bot()
 
     yield
@@ -85,8 +85,7 @@ async def callback_handler(request: Request):
 # Маршрут для обработки вебхуков
 @app.post("/webhook")
 async def webhook(request: Request) -> None:
-    update = await request.json()  # Получаем данные из запроса
-    # Обрабатываем обновление через диспетчер (dp) и передаем в бот
+    update = Update.model_validate(await request.json(), context={"bot": bot})
     await dp.feed_update(bot, update)
 
 def main() -> None:

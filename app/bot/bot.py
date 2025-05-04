@@ -1,8 +1,8 @@
 import os
 import logging
 import datetime
-
-from aiogram import Bot, types
+from aiogram.filters import CommandStart
+from aiogram import Bot, types, Router
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -29,7 +29,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
-# Определение состояний для FSM
+
+user_router = Router()
+
+
+@user_router.message(CommandStart())
+async def start_handler(message: Message):
+    await message.answer(
+        "Hello! I'm your Google Calendar assistant. Use /auth to authorize me and /events to see your upcoming events.")
+
+
+
+
+
+
 
 class AuthState(StatesGroup):
     waiting_for_auth_code = State()
@@ -101,10 +114,6 @@ async def get_upcoming_events(user_id, num_events=5):
     return "\n".join(event_details)
 
 
-# Обработчик команды /start
-async def start_handler(message: Message):
-    await message.answer(
-        "Hello! I'm your Google Calendar assistant. Use /auth to authorize me and /events to see your upcoming events.")
 
 
 # Обработчик команды /auth
