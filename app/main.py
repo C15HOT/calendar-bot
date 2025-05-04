@@ -45,12 +45,13 @@ app.add_middleware(CORSMiddleware,
 @app.get('/test')
 async def test():
     return {'test: test'}
-# app.include_router(miniapp_router)
+
 @app.get("/callback")
 async def callback_handler(request: Request):
     code = request.query_params.get('code')
     state = request.query_params.get('state')
-    user_id = request.query_params.get('user_id')
+    user_id = request.query_params.get('user')
+    scope_from_callback = request.query_params.get('scope')
 
     if not code or not state or not user_id:
         raise HTTPException(status_code=400, detail="Missing required parameters")

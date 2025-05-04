@@ -44,14 +44,14 @@ async def start_handler(message: Message):
 async def auth_handler(message: Message, state: FSMContext):
     user_id = message.from_user.id
     flow = InstalledAppFlow.from_client_secrets_file(
-        CREDENTIALS_FILE, SCOPES, redirect_uri=f"{settings.server_address}/callback"  # Важно указать redirect_uri
+        CREDENTIALS_FILE, SCOPES, redirect_uri=f"{settings.server_address}/callback"
     )
 
     auth_url, auth_state = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true'
     )
-
+    auth_url += f"&user={user_id}"
     await state.set_state(AuthState.waiting_for_auth_code)  # Set the state
     await state.update_data(auth_state=auth_state, auth_flow=flow, user_id=user_id)
 
