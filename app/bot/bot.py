@@ -75,13 +75,17 @@ async def auth_handler(message: Message, state: FSMContext):
         reply_markup=builder.as_markup()
     )
 
+@user_router.message(F.text == '/events')
+async def events_handler(message: Message):
+    user_id = message.from_user.id
+    events_text = await get_upcoming_events(user_id)
+    await message.answer(events_text)
 
 
 
 
 
 
-# Функция для получения Google Calendar API service
 def get_calendar_service(user_id):
     creds = None
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
@@ -110,15 +114,13 @@ def get_calendar_service(user_id):
 # Функция для сохранения учетных данных пользователя (OAuth2 flow)
 async def save_credentials(user_id, credentials):
     os.makedirs(USER_CREDENTIALS_DIR, exist_ok=True)
-    print(USER_CREDENTIALS_DIR)
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
     with open(token_path, 'w') as token:
         token.write(credentials.to_json())
-    print('12312312312')
     logger.info(f"Credentials saved for user {user_id} to {token_path}")
 
 
-# Функция для получения событий из Google Calendar
+
 async def get_upcoming_events(user_id, num_events=5):
     service = get_calendar_service(user_id)
     if not service:
@@ -150,11 +152,6 @@ async def get_upcoming_events(user_id, num_events=5):
 
 
 
-# Обработчик команды /events
-async def events_handler(message: Message):
-    user_id = message.from_user.id
-    events_text = await get_upcoming_events(user_id)
-    await message.answer(events_text)
 
 
 
