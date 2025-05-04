@@ -155,13 +155,48 @@ async def get_upcoming_events(user_id, num_events=5):
 
 
 
+async def send_event_reminders(bot: Bot):
+    """
+    Sends event reminders to all authorized users.
+    """
+    # Get the list of user IDs from the credentials directory
+    user_ids = get_all_user_ids()
 
-# Функция для отправки уведомлений (запускается периодически)
-async def send_event_reminders(bot: Bot):  # Pass Bot instance
-    # Logic for sending event reminders
-    # This would involve iterating through authorized users,
-    # checking their calendars, and sending notifications.
-    pass
+    now = datetime.datetime.now(pytz.timezone('Europe/Moscow'))  # Замените на ваш часовой пояс
+
+    for user_id in user_ids:
+        upcoming_events = await get_upcoming_events(user_id, num_events=5)
+
+        for event_summary, event_start_time_str in upcoming_events:
+            event_start_time = datetime.datetime.strptime(event_start_time_str, '%Y-%m-%d %H:%M')
+            event_start_time = pytz.timezone('Europe/Moscow').localize(event_start_time)  # Localize event_start_time
+            print(event_start_time)
+            time_difference = event_start_time - now
+            if datetime.timedelta(minutes=15) <= time_difference <= datetime.timedelta(hours=24):  # Check if event is in 15-30 minutes
+                await bot.send_message(chat_id=user_id,
+                                       text=f"Reminder: {event_summary} is starting at {event_start_time_str}")
+                logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
+
+def get_all_user_ids():
+    """
+    Gets all user IDs by listing files in the credentials directory.
+    """
+    user_ids = []
+    for filename in os.listdir(USER_CREDENTIALS_DIR):
+        if filename.startswith('token_') and filename.endswith('.json'):
+            try:
+                user_id = int(filename.split('_')[1].split('.')[0])
+                user_ids.append(user_id)
+            except ValueError:
+                logger.warning(f"Invalid filename in credentials directory: {filename}")
+    return user_ids
+
+
+
+
+
+
+
 
 
 async def start_bot():

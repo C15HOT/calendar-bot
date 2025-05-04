@@ -6,7 +6,8 @@ from uvicorn import run
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.bot.init_bot import dp, bot
-from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot, user_router
+from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot, user_router, \
+    send_event_reminders
 from aiogram.filters import CommandStart, Command
 import urllib.parse
 from app.settings import get_settings
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
         drop_pending_updates=True
     )
     await start_bot()
+    scheduler.add_job(send_event_reminders, "interval", seconds=60, args=(bot,))
 
     yield
     await stop_bot()
