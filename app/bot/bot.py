@@ -2,7 +2,7 @@ import os
 import logging
 import datetime
 from aiogram.filters import CommandStart
-from aiogram import Bot, types, Router
+from aiogram import Bot, types, Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -32,20 +32,45 @@ settings = get_settings()
 
 user_router = Router()
 
+class AuthState(StatesGroup):
+    waiting_for_auth_code = State()
 
 @user_router.message(CommandStart())
 async def start_handler(message: Message):
     await message.answer(
         "Hello! I'm your Google Calendar assistant. Use /auth to authorize me and /events to see your upcoming events.")
 
+@user_router.message(F.text == '/auth')
+async def auth_handler(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    flow = InstalledAppFlow.from_client_secrets_file(
+        CREDENTIALS_FILE, SCOPES, redirect_uri=f"{settings.server_address}/callback"  # Важно указать redirect_uri
+    )
+
+    auth_url, auth_state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true'
+    )
+
+    await state.set_state(AuthState.waiting_for_auth_code)  # Set the state
+    await state.update_data(auth_state=auth_state, auth_flow=flow, user_id=user_id)
+
+    # Create an inline keyboard with a link to the authorization URL
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(
+        text="Authorize Google Calendar",
+        url=auth_url
+    ))
+
+    await message.answer(
+        "Please authorize access to your Google Calendar by visiting this URL:",
+        reply_markup=builder.as_markup()
+    )
 
 
 
 
 
-
-class AuthState(StatesGroup):
-    waiting_for_auth_code = State()
 
 
 # Функция для получения Google Calendar API service
@@ -113,35 +138,6 @@ async def get_upcoming_events(user_id, num_events=5):
 
     return "\n".join(event_details)
 
-
-
-
-# Обработчик команды /auth
-async def auth_handler(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    flow = InstalledAppFlow.from_client_secrets_file(
-        CREDENTIALS_FILE, SCOPES, redirect_uri=f"{settings.server_address}/callback"  # Важно указать redirect_uri
-    )
-
-    auth_url, auth_state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true'
-    )
-
-    await state.set_state(AuthState.waiting_for_auth_code)  # Set the state
-    await state.update_data(auth_state=auth_state, auth_flow=flow, user_id=user_id)
-
-    # Create an inline keyboard with a link to the authorization URL
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(
-        text="Authorize Google Calendar",
-        url=auth_url
-    ))
-
-    await message.answer(
-        "Please authorize access to your Google Calendar by visiting this URL:",
-        reply_markup=builder.as_markup()
-    )
 
 
 # Обработчик команды /events
