@@ -20,6 +20,7 @@ import urllib.parse
 from .init_bot import bot
 # Google Calendar API Scope
 from app.settings import get_settings
+from aiogram.utils.markdown import hbold, hitalic
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')  # Path to the downloaded credentials.json file
@@ -79,8 +80,28 @@ async def auth_handler(message: Message, state: FSMContext):
 @user_router.message(F.text == '/events')
 async def events_handler(message: Message):
     user_id = message.from_user.id
-    events_text = await get_upcoming_events(user_id)
-    await message.answer(events_text)
+    events = await get_upcoming_events(user_id)
+    if not events:
+        await message.answer("No upcoming events found.")
+        return
+
+    formatted_events = []
+    for event_summary, event_start_time_str in events:
+        try:
+            event_start_time = datetime.datetime.strptime(event_start_time_str, '%Y-%m-%d %H:%M')
+            formatted_time = event_start_time.strftime('%d %B %Y, %H:%M')  # e.g., "08 December 2023, 10:00"
+        except ValueError:
+            formatted_time = event_start_time_str  # Use original string if parsing fails
+
+        formatted_events.append(
+            f"{hbold(event_summary)}\n"
+            f"{hitalic('Time:')} {formatted_time}\n"
+        )
+
+    await message.answer(
+        "\n".join(formatted_events),
+        parse_mode="HTML"  # Enable HTML parsing for bold and italic
+    )
 
 
 
@@ -147,9 +168,9 @@ async def get_upcoming_events(user_id, num_events=5):
         local_timezone = pytz.timezone('Europe/Moscow')  # Замените на ваш часовой пояс
         local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(local_timezone)
 
-        event_details.append(f"{event['summary']} at {local_start_time.strftime('%Y-%m-%d %H:%M')}")
+        event_details.append((event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
 
-    return "\n".join(event_details)
+    return event_details
 
 
 
