@@ -110,9 +110,11 @@ def get_calendar_service(user_id):
 # Функция для сохранения учетных данных пользователя (OAuth2 flow)
 async def save_credentials(user_id, credentials):
     os.makedirs(USER_CREDENTIALS_DIR, exist_ok=True)
+    print(USER_CREDENTIALS_DIR)
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
     with open(token_path, 'w') as token:
         token.write(credentials.to_json())
+    print('12312312312')
     logger.info(f"Credentials saved for user {user_id} to {token_path}")
 
 

@@ -74,6 +74,7 @@ async def callback_handler(request: Request):
     try:
         flow.fetch_token(code=code)
         credentials = flow.credentials
+        print('123')
         await save_credentials(user_id, credentials)
 
         await bot.send_message(chat_id=user_id,
