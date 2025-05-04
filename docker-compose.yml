@@ -12,6 +12,7 @@ services:
       server_address: ${server_address}
     volumes:
     - ./user_credentials:/service/user_credentials
+    - ./credentials.json:/service/credentials.json
 
   nginx:
     image: nginx:latest
