@@ -27,10 +27,10 @@ async def lifespan(app: FastAPI):
     )
     await start_bot()
     scheduler.add_job(send_event_reminders, "interval", seconds=60, args=(bot,))
-
+    scheduler.start()
     yield
     await stop_bot()
-
+    scheduler.shutdown()
     await bot.delete_webhook()
 
 app = FastAPI(
