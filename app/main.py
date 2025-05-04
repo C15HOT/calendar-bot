@@ -56,8 +56,13 @@ async def callback_handler(request: Request):
         raise HTTPException(status_code=400, detail="Missing required parameters")
     composite_state = urllib.parse.unquote(encoded_composite_state)
     auth_state, user_id = composite_state.split("|")
-    # Find the state by user_id
-    fsm_context = dp.fsm.get_context(bot, user_id=int(user_id))
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing user_id in state")
+
+    user_id = int(user_id)  # Convert user_id to int
+
+    # Find the state by user_id (which is the same as chat_id in private chats)
+    fsm_context = dp.fsm.get_context(bot, chat_id=user_id, user_id=user_id)
     data = await fsm_context.get_data()
 
     stored_state = data.get('auth_state')
