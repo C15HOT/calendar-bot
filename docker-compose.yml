@@ -10,6 +10,8 @@ services:
       admin_id: ${admin_id}
       bot_token: ${bot_token}
       server_address: ${server_address}
+    volumes:
+    - ./user_credentials:/service/user_credentials
 
   nginx:
     image: nginx:latest

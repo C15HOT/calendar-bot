@@ -23,7 +23,7 @@ from app.settings import get_settings
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')  # Path to the downloaded credentials.json file
-USER_CREDENTIALS_DIR = os.path.join(os.path.dirname(__file__), 'user_credentials')  # Directory to store user-specific credentials
+USER_CREDENTIALS_DIR = "/service/user_credentials"
 
 # Настройки Logging
 logging.basicConfig(level=logging.INFO)
