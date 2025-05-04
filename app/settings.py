@@ -16,13 +16,16 @@ class Settings(BaseSettings):
     admin_id: str
 
 
+
     @property
     def echo(self):
         if self.is_debug == 'True':
             return True
         else:
             return False
-
+    @property
+    def webhook_url(self):
+        return f"{self.server_address}/webhook"
     # @property
     # def async_session(self):
     #     connection = f'{self.POSTGRESQL_SERVER}{self.POSTGRESQL_DB}'

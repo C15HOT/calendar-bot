@@ -8,27 +8,28 @@ from contextlib import asynccontextmanager
 from app.bot.init_bot import dp, bot
 from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot
 from aiogram.filters import CommandStart, Command
+
+from app.settings import get_settings
+
 scheduler = AsyncIOScheduler()
 
-
+settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    dp["bot"] = bot  # Store the Bot instance in the Dispatcher
-    # Register handlers
-    dp.message.register(start_handler, CommandStart())
-    dp.message.register(auth_handler, Command("auth"))
-    dp.message.register(events_handler, Command("events"))
+    webhook_url = settings.webhook_url
+    print(webhook_url)
+    # await bot.set_webhook(
+    #     url=webhook_url,
+    #     allowed_updates=dp.resolve_used_update_types(),
+    #     drop_pending_updates=True
+    # )
     await start_bot()
-    # Start scheduler
-    # scheduler = AsyncIOScheduler()
-    # scheduler.add_job(send_event_reminders, 'interval', minutes=10, args=(bot,))
-    # scheduler.start()  # УБРАТЬ КОММЕНТАРИЙ В ПРОДАКШЕНЕ
-    # await dp.start_polling(bot)
+
     yield
     await stop_bot()
-    # Cleanup code here if needed
-    await bot.session.close()
+
+    await bot.delete_webhook()
 
 app = FastAPI(
     title="calendar",
@@ -79,6 +80,14 @@ async def callback_handler(request: Request):
         await bot.send_message(chat_id=user_id,
                                text=f"Authentication failed: {e}")
         raise HTTPException(status_code=500, detail=f"Authorization failed: {e}")
+
+
+# Маршрут для обработки вебхуков
+@app.post("/webhook")
+async def webhook(request: Request) -> None:
+    update = await request.json()  # Получаем данные из запроса
+    # Обрабатываем обновление через диспетчер (dp) и передаем в бот
+    await dp.feed_update(bot, update)
 
 def main() -> None:
     run(
