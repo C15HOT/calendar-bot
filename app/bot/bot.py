@@ -53,7 +53,8 @@ async def auth_handler(message: Message, state: FSMContext):
     auth_url, _ = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
-        state=encoded_composite_state
+        state=encoded_composite_state,
+        prompt='consent'
     )
     # auth_url, auth_state = flow.authorization_url(
     #     access_type='offline',
