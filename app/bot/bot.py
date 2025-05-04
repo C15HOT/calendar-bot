@@ -193,7 +193,7 @@ async def send_event_reminders(bot: Bot):
             event_start_time = pytz.timezone('Europe/Moscow').localize(event_start_time)  # Localize event_start_time
             print(event_start_time)
             time_difference = event_start_time - now
-            if datetime.timedelta(minutes=15) <= time_difference <= datetime.timedelta(hours=24):  # Check if event is in 15-30 minutes
+            if datetime.timedelta(minutes=15) <= time_difference <= datetime.timedelta(hours=2):  # Check if event is in 15-30 minutes
                 await bot.send_message(chat_id=user_id,
                                        text=f"Reminder: {event_summary} is starting at {event_start_time_str}")
                 logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
