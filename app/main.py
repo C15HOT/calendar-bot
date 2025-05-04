@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from app.bot.init_bot import dp, bot
 from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot, user_router
 from aiogram.filters import CommandStart, Command
-
+import urllib.parse
 from app.settings import get_settings
 
 scheduler = AsyncIOScheduler()
@@ -49,13 +49,13 @@ async def test():
 @app.get("/callback")
 async def callback_handler(request: Request):
     code = request.query_params.get('code')
-    state = request.query_params.get('state')
-    user_id = request.query_params.get('user')
+    encoded_composite_state = request.query_params.get('state')
     scope_from_callback = request.query_params.get('scope')
 
-    if not code or not state or not user_id:
+    if not code or not encoded_composite_state:
         raise HTTPException(status_code=400, detail="Missing required parameters")
-
+    composite_state = urllib.parse.unquote(encoded_composite_state)
+    auth_state, user_id = composite_state.split("|")
     # Find the state by user_id
     fsm_context = dp.fsm.get_context(bot, user_id=int(user_id))
     data = await fsm_context.get_data()
@@ -63,7 +63,7 @@ async def callback_handler(request: Request):
     stored_state = data.get('auth_state')
     flow = data.get('auth_flow')
 
-    if stored_state != state:
+    if stored_state != auth_state:
         raise HTTPException(status_code=400, detail="State mismatch!")
 
     try:

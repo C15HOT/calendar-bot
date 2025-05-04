@@ -15,7 +15,8 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
-
+import secrets
+import urllib.parse
 from .init_bot import bot
 # Google Calendar API Scope
 from app.settings import get_settings
@@ -46,12 +47,19 @@ async def auth_handler(message: Message, state: FSMContext):
     flow = InstalledAppFlow.from_client_secrets_file(
         CREDENTIALS_FILE, SCOPES, redirect_uri=f"{settings.server_address}/callback"
     )
-
-    auth_url, auth_state = flow.authorization_url(
+    auth_state = secrets.token_urlsafe(16)
+    composite_state = f"{auth_state}|{user_id}"
+    encoded_composite_state = urllib.parse.quote(composite_state)
+    auth_url, _ = flow.authorization_url(
         access_type='offline',
-        include_granted_scopes='true'
+        include_granted_scopes='true',
+        state=encoded_composite_state
     )
-    auth_url += f"&user={user_id}"
+    # auth_url, auth_state = flow.authorization_url(
+    #     access_type='offline',
+    #     include_granted_scopes='true'
+    # )
+
     await state.set_state(AuthState.waiting_for_auth_code)  # Set the state
     await state.update_data(auth_state=auth_state, auth_flow=flow, user_id=user_id)
 
