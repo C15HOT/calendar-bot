@@ -1,6 +1,8 @@
 import os
 import logging
 import datetime
+from typing import List, Tuple
+
 from aiogram.filters import CommandStart
 from aiogram import Bot, types, Router, F
 from aiogram.types import Message
@@ -86,21 +88,14 @@ async def events_handler(message: Message):
         return
 
     formatted_events = []
-    for event_summary, event_start_time_str in events:
-        try:
-            event_start_time = datetime.datetime.strptime(event_start_time_str, '%Y-%m-%d %H:%M')
-            formatted_time = event_start_time.strftime('%d %B %Y, %H:%M')  # e.g., "08 December 2023, 10:00"
-        except ValueError:
-            formatted_time = event_start_time_str  # Use original string if parsing fails
-
+    for calendar_name, event_summary, event_start_time_str in events:
         formatted_events.append(
-            f"{hbold(event_summary)}\n"
-            f"{hitalic('Time:')} {formatted_time}\n"
+            f"<b>{calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
         )
 
     await message.answer(
         "\n".join(formatted_events),
-        parse_mode="HTML"  # Enable HTML parsing for bold and italic
+        parse_mode="HTML"
     )
 
 
@@ -132,6 +127,32 @@ def get_calendar_service(user_id):
         logger.error(f"An error occurred: {error}")
         return None
 
+async def get_calendar_list(service):
+    """
+    Gets the list of calendars for the user.
+    """
+    try:
+        calendar_list = service.calendarList().list().execute()
+        calendars = calendar_list.get('items', [])
+        return calendars
+    except HttpError as error:
+        logger.error(f"An error occurred: {error}")
+        return []
+
+async def get_events_from_calendar(service, calendar_id, num_events=5):
+    """
+    Gets upcoming events from a specific calendar.
+    """
+    now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+    try:
+        events_result = service.events().list(calendarId=calendar_id, timeMin=now,
+                                              maxResults=num_events, singleEvents=True,
+                                              orderBy='startTime').execute()
+        events = events_result.get('items', [])
+        return events
+    except HttpError as error:
+        logger.error(f"An error occurred: {error}")
+        return []
 
 # Функция для сохранения учетных данных пользователя (OAuth2 flow)
 async def save_credentials(user_id, credentials):
@@ -143,34 +164,33 @@ async def save_credentials(user_id, credentials):
 
 
 
-async def get_upcoming_events(user_id, num_events=5):
+async def get_upcoming_events(user_id: int, num_events: int = 10) -> List[Tuple[str, str, str]]:
+    """
+    Gets upcoming events from all calendars and returns them as a list of (calendar_name, summary, start_time) tuples.
+    """
     service = get_calendar_service(user_id)
     if not service:
-        return "Please authorize the bot to access your Google Calendar first. Use the /auth command."
+        return "Please authorize the bot to access your OpenAI Calendar first. Use the /auth command."
 
-    now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-    try:
-        events_result = service.events().list(calendarId='primary', timeMin=now,
-                                              maxResults=num_events, singleEvents=True,
-                                              orderBy='startTime').execute()
-        events = events_result.get('items', [])
-    except HttpError as error:
-        logger.error(f"An error occurred: {error}")
-        return f"Error retrieving events: {error}"
+    calendars = await get_calendar_list(service)
+    if not calendars:
+        return "No calendars found or could not retrieve the calendar list."
 
-    if not events:
-        return 'No upcoming events found.'
+    all_events = []
+    for calendar in calendars:
+        calendar_id = calendar['id']
+        calendar_name = calendar['summary']  # Имя календаря
+        events = await get_events_from_calendar(service, calendar_id, num_events)
 
-    event_details = []
-    for event in events:
-        start = event['start'].get('dateTime', event['start'].get('date'))
-        start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
-        local_timezone = pytz.timezone('Europe/Moscow')  # Замените на ваш часовой пояс
-        local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(local_timezone)
+        for event in events:
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+            local_timezone = pytz.timezone('Europe/Moscow')  # Замените на ваш часовой пояс
+            local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(local_timezone)
 
-        event_details.append((event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
+            all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))  # Добавляем имя календаря
 
-    return event_details
+    return all_events
 
 
 
@@ -197,6 +217,8 @@ async def send_event_reminders(bot: Bot):
                 await bot.send_message(chat_id=user_id,
                                        text=f"Reminder: {event_summary} is starting at {event_start_time_str}")
                 logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
+
+
 
 def get_all_user_ids():
     """
