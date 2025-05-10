@@ -243,7 +243,7 @@ async def send_event_reminders(bot: Bot):
                     minutes = total_minutes % 60
                     time_string = f"{hours} hours {minutes} minutes"
                 await bot.send_message(chat_id=user_id,
-                                       text=f"Reminder: {event_summary} is starting will in {time_string}")
+                                       text=f"Reminder: {event_summary} will start in {time_string}")
             logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
 
 
