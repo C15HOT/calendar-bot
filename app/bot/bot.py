@@ -95,9 +95,8 @@ async def events_handler(message: Message):
     formatted_events = []
     for calendar_name, event_summary, event_start_time_str in events:
         color = get_calendar_color(calendar_name)
-        colored_calendar_name = f"<font color=\"{color}\">{calendar_name}</font>"
         formatted_events.append(
-            f"<b>{colored_calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
+            f"{color}<b>{calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
         )
 
     await message.answer(
@@ -110,14 +109,14 @@ def get_calendar_color(calendar_name: str) -> str:
     Assigns a color to a calendar based on its name.
     """
     calendar_colors = {
-        "Важные срочные": "red",
-        "Важные несрочные": "green",
-        "Неважные срочные": "blue",
-        "Неважные несрочные": "orange",
-        "Праздники России": "blue",
-        "dknotion@gmail.com": "purple",  # Цвет для календаря dknotion@gmail.com
+        "Важные срочные": "🟥",
+        "Важные несрочные": "🟩",
+        "Неважные срочные": "🟦",
+        "Неважные несрочные": "🟧",
+        "Праздники России": "🎉",
+        "dknotion@gmail.com": "🟪",  # Цвет для календаря dknotion@gmail.com
     }
-    return calendar_colors.get(calendar_name, "black")  # Default color
+    return calendar_colors.get(calendar_name, "⬛️")  # Default color
 
 
 
@@ -206,7 +205,11 @@ async def get_upcoming_events(user_id, num_events=5):
             start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
             logger.info(f"start_datetime after fromisoformat: {start_datetime}")
 
-            local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(LOCAL_TIMEZONE)  # Use LOCAL_TIMEZONE
+            if start_datetime.tzinfo is None:
+                local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(LOCAL_TIMEZONE)
+            else:
+                local_start_time = start_datetime.astimezone(LOCAL_TIMEZONE)
+
             logger.info(f"local_start_time after timezone conversion: {local_start_time}")
 
             all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
