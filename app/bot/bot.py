@@ -219,7 +219,7 @@ async def send_event_reminders(bot: Bot):
     # Get the list of user IDs from the credentials directory
     user_ids = get_all_user_ids()
 
-    now = datetime.datetime.now(pytz.timezone('Europe/Moscow'))  # Замените на ваш часовой пояс
+    now = datetime.datetime.now(LOCAL_TIMEZONE)# Замените на ваш часовой пояс
 
     for user_id in user_ids:
         upcoming_events = await get_upcoming_events(user_id, num_events=5)
@@ -230,11 +230,20 @@ async def send_event_reminders(bot: Bot):
                 f"{color}<b>{calendar_name}:</b> Reminder: {event_summary} is starting at {event_start_time_str}"
             )
             event_start_time = datetime.datetime.strptime(event_start_time_str, '%Y-%m-%d %H:%M')
+            event_start_time = LOCAL_TIMEZONE.localize(event_start_time)
             time_difference = event_start_time - now
             if datetime.timedelta(minutes=15) <= time_difference <= datetime.timedelta(
                     hours=2):  # Check if event is in 15-30 minutes
+                total_minutes = int(time_difference.total_seconds() / 60)
+
+                if total_minutes < 60:
+                    time_string = f"{total_minutes} minutes"
+                else:
+                    hours = total_minutes // 60
+                    minutes = total_minutes % 60
+                    time_string = f"{hours} hours {minutes} minutes"
                 await bot.send_message(chat_id=user_id,
-                                       text=f"Reminder: {event_summary} is starting will in {time_difference}")
+                                       text=f"Reminder: {event_summary} is starting will in {time_string}")
             logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
 
 
