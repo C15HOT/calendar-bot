@@ -96,7 +96,7 @@ async def events_handler(message: Message):
     for calendar_name, event_summary, event_start_time_str in events:
         color = get_calendar_color(calendar_name)
         formatted_events.append(
-            f"{color}<b>{calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
+            f"{color} <b>{calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
         )
 
     await message.answer(
@@ -223,12 +223,9 @@ async def send_event_reminders(bot: Bot):
 
     for user_id in user_ids:
         upcoming_events = await get_upcoming_events(user_id, num_events=5)
-        formatted_events = []
         for calendar_name, event_summary, event_start_time_str in upcoming_events:
             color = get_calendar_color(calendar_name)
-            formatted_events.append(
-                f"{color}<b>{calendar_name}:</b> Reminder: {event_summary} is starting at {event_start_time_str}"
-            )
+
             event_start_time = datetime.datetime.strptime(event_start_time_str, '%Y-%m-%d %H:%M')
             event_start_time = LOCAL_TIMEZONE.localize(event_start_time)
             time_difference = event_start_time - now
@@ -243,7 +240,7 @@ async def send_event_reminders(bot: Bot):
                     minutes = total_minutes % 60
                     time_string = f"{hours} hours {minutes} minutes"
                 await bot.send_message(chat_id=user_id,
-                                       text=f"Reminder: {event_summary} will start in {time_string}")
+                                       text=f"<b>Reminder: </b> {color} {event_summary} will start in {time_string}")
             logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
 
 
