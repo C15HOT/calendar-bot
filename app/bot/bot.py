@@ -199,19 +199,11 @@ async def get_upcoming_events(user_id, num_events=5):
 
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
-
-            logger.info(f"Original start time from OpenAI Calendar: {start}")
-
             start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
-            logger.info(f"start_datetime after fromisoformat: {start_datetime}")
-
             if start_datetime.tzinfo is None:
                 local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(LOCAL_TIMEZONE)
             else:
                 local_start_time = start_datetime.astimezone(LOCAL_TIMEZONE)
-
-            logger.info(f"local_start_time after timezone conversion: {local_start_time}")
-
             all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
 
     return all_events
@@ -231,16 +223,19 @@ async def send_event_reminders(bot: Bot):
 
     for user_id in user_ids:
         upcoming_events = await get_upcoming_events(user_id, num_events=5)
-
-        for event_summary, event_start_time_str in upcoming_events:
+        formatted_events = []
+        for calendar_name, event_summary, event_start_time_str in upcoming_events:
+            color = get_calendar_color(calendar_name)
+            formatted_events.append(
+                f"{color}<b>{calendar_name}:</b> Reminder: {event_summary} is starting at {event_start_time_str}"
+            )
             event_start_time = datetime.datetime.strptime(event_start_time_str, '%Y-%m-%d %H:%M')
-            event_start_time = pytz.timezone('Europe/Moscow').localize(event_start_time)  # Localize event_start_time
-            print(event_start_time)
             time_difference = event_start_time - now
-            if datetime.timedelta(minutes=15) <= time_difference <= datetime.timedelta(hours=2):  # Check if event is in 15-30 minutes
+            if datetime.timedelta(minutes=15) <= time_difference <= datetime.timedelta(
+                    hours=2):  # Check if event is in 15-30 minutes
                 await bot.send_message(chat_id=user_id,
-                                       text=f"Reminder: {event_summary} is starting at {event_start_time_str}")
-                logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
+                                       text=f"Reminder: {event_summary} is starting will in {time_difference}")
+            logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
 
 
 
