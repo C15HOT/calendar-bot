@@ -89,8 +89,10 @@ async def events_handler(message: Message):
 
     formatted_events = []
     for calendar_name, event_summary, event_start_time_str in events:
+        color = get_calendar_color(calendar_name)
+        colored_calendar_name = f"<font color=\"{color}\">{calendar_name}</font>"
         formatted_events.append(
-            f"<b>{calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
+            f"<b>{colored_calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
         )
 
     await message.answer(
@@ -98,7 +100,19 @@ async def events_handler(message: Message):
         parse_mode="HTML"
     )
 
-
+def get_calendar_color(calendar_name: str) -> str:
+    """
+    Assigns a color to a calendar based on its name.
+    """
+    calendar_colors = {
+        "Важные срочные": "red",
+        "Важные несрочные": "green",
+        "Неважные срочные": "blue",
+        "Неважные несрочные": "orange",
+        "Праздники России": "blue",
+        "dknotion@gmail.com": "purple",  # Цвет для календаря dknotion@gmail.com
+    }
+    return calendar_colors.get(calendar_name, "black")  # Default color
 
 
 
@@ -164,10 +178,7 @@ async def save_credentials(user_id, credentials):
 
 
 
-async def get_upcoming_events(user_id: int, num_events: int = 10) -> List[Tuple[str, str, str]]:
-    """
-    Gets upcoming events from all calendars and returns them as a list of (calendar_name, summary, start_time) tuples.
-    """
+async def get_upcoming_events(user_id, num_events=5):
     service = get_calendar_service(user_id)
     if not service:
         return "Please authorize the bot to access your OpenAI Calendar first. Use the /auth command."
@@ -184,11 +195,16 @@ async def get_upcoming_events(user_id: int, num_events: int = 10) -> List[Tuple[
 
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
-            start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
-            local_timezone = pytz.timezone('Europe/Moscow')  # Замените на ваш часовой пояс
-            local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(local_timezone)
 
-            all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))  # Добавляем имя календаря
+            logger.info(f"Original start time from OpenAI Calendar: {start}")
+
+            start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+            logger.info(f"start_datetime after fromisoformat: {start_datetime}")
+
+            local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(LOCAL_TIMEZONE)  # Use LOCAL_TIMEZONE
+            logger.info(f"local_start_time after timezone conversion: {local_start_time}")
+
+            all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
 
     return all_events
 
