@@ -36,6 +36,11 @@ settings = get_settings()
 
 user_router = Router()
 
+
+LOCAL_TIMEZONE = pytz.timezone('Europe/Moscow')
+
+
+
 class AuthState(StatesGroup):
     waiting_for_auth_code = State()
 
