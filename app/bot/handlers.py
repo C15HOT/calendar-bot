@@ -7,10 +7,15 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+from app.bot.keyboards import get_auth_keyboard
 from app.settings import get_settings
 
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+SCOPES = [
+    'https://www.googleapis.com/auth/calendar.readonly',  # Для чтения событий
+    'https://www.googleapis.com/auth/calendar.events'    # Для создания, редактирования и удаления событий
+]
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')
 USER_CREDENTIALS_DIR = "/service/user_credentials"
 logging.basicConfig(level=logging.INFO)
@@ -43,17 +48,32 @@ def get_calendar_service(user_id):
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
 
     if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+            logger.info(f"Token expiry from file: {creds.expiry}")
+            logger.info(f"Current UTC time: {datetime.datetime.now(pytz.utc)}")
+        except Exception as e:
+            logger.error(f"Error loading credentials from file for user {user_id}: {e}")
+            creds = None  # Set creds to None if loading fails
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception as e:
-                logger.error(f"Failed to refresh token for user {user_id}: {e}")
-                return None
-        else:
-            return None  # Token needs to be created
+    # Force refresh the access token if a refresh token exists
+    if creds and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            # Save the refreshed credentials
+            with open(token_path, 'w') as f:
+                f.write(creds.to_json())
+            logger.info(f"Token forcibly refreshed for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to refresh token for user {user_id}: {e}")
+            return ("Failed to refresh token. Please re-authorize the bot.", get_auth_keyboard())
+    elif creds:
+        # If there's no refresh token, the token needs re-authorization
+        logger.warning(f"No refresh token found for user {user_id}. Re-authorization required.")
+        return ("No refresh token found. Please re-authorize the bot.", get_auth_keyboard())
+    else:
+        # If there's no creds
+        return ("Please authorize the bot to access your OpenAI Calendar first.", get_auth_keyboard())
 
     try:
         service = build('calendar', 'v3', credentials=creds)

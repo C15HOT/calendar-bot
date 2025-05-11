@@ -1,10 +1,19 @@
-from aiogram.types import ReplyKeyboardMarkup, WebAppInfo, InlineKeyboardMarkup
+from aiogram.types import ReplyKeyboardMarkup, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 from app.settings import get_settings
 
 settings = get_settings()
 
+
+def get_auth_keyboard():
+    """Creates an inline keyboard for re-authorization."""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Re-authorize", callback_data="/auth") #Replace callback_data with actual re-auth command
+        ]
+    ])
+    return keyboard
 
 
 def main_keyboard(user_id: int, first_name: str) -> ReplyKeyboardMarkup:
