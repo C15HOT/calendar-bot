@@ -15,7 +15,7 @@ import secrets
 import urllib.parse
 
 from .handlers import get_upcoming_events, get_calendar_color
-from .init_bot import bot
+from .init_bot import bot, dp
 from app.settings import get_settings
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
@@ -77,6 +77,38 @@ async def auth_handler(message: Message, state: FSMContext):
         "Please authorize access to your Google Calendar by visiting this URL:",
         reply_markup=builder.as_markup()
     )
+@dp.callback_query(F.data == "reauth")
+async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """Handles the re-authorization callback."""
+    user_id = callback_query.from_user.id
+    flow = InstalledAppFlow.from_client_secrets_file(
+        CREDENTIALS_FILE, SCOPES, redirect_uri=f"{settings.server_address}/callback"
+    )
+    auth_state = secrets.token_urlsafe(16)
+    composite_state = f"{auth_state}|{user_id}"
+    encoded_composite_state = urllib.parse.quote(composite_state)
+    auth_url, _ = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        state=encoded_composite_state,
+        prompt='consent'
+    )
+
+    await state.set_state(AuthState.waiting_for_auth_code)  # Set the state
+    await state.update_data(auth_state=auth_state, auth_flow=flow, user_id=user_id)
+
+    # Create an inline keyboard with a link to the authorization URL
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(
+        text="Authorize Google Calendar",
+        url=auth_url
+    ))
+
+    await callback_query.message.answer(
+        "Please authorize access to your Google Calendar by visiting this URL:",
+        reply_markup=builder.as_markup()
+    )
+    await callback_query.answer()
 
 @user_router.message(F.text == '/events')
 async def events_handler(message: Message):
