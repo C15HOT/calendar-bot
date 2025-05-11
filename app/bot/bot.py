@@ -82,6 +82,12 @@ async def auth_handler(message: Message, state: FSMContext):
 async def events_handler(message: Message):
     user_id = message.from_user.id
     events = await get_upcoming_events(user_id)
+
+    if isinstance(events, tuple):  # Check if events is tuple(str,InlineKeyboardMarkup)
+        await message.answer(events[0], reply_markup=events[1])  # Send the error message with the keyboard
+        return
+
+
     if not events:
         await message.answer("No upcoming events found.")
         return
