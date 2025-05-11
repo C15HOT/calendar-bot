@@ -21,6 +21,7 @@ def get_postpone_keyboard(event_id: int):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="Remind later", callback_data=f"show_postpone_times:{event_id}"),
+            InlineKeyboardButton(text="Cancel", callback_data=f"cancel_postpone:{event_id}"),
         ]
     ])
     return keyboard
