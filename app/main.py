@@ -5,10 +5,10 @@ from starlette.responses import HTMLResponse
 from uvicorn import run
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
+from app.bot.handlers import send_event_reminders, save_credentials
 from app.bot.init_bot import dp, bot
-from app.bot.bot import start_handler, auth_handler, events_handler, save_credentials, start_bot, stop_bot, user_router, \
-    send_event_reminders
-from aiogram.filters import CommandStart, Command
+from app.bot.bot import start_bot, stop_bot, user_router
 import urllib.parse
 from app.settings import get_settings
 
