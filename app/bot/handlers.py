@@ -12,10 +12,7 @@ from app.bot.keyboards import get_auth_keyboard
 from app.settings import get_settings
 
 
-SCOPES = [
-    'https://www.googleapis.com/auth/calendar.readonly',  # Для чтения событий
-    'https://www.googleapis.com/auth/calendar.events'    # Для создания, редактирования и удаления событий
-]
+
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')
 USER_CREDENTIALS_DIR = "/service/user_credentials"
 logging.basicConfig(level=logging.ERROR)
@@ -49,7 +46,7 @@ def get_calendar_service(user_id):
 
     if os.path.exists(token_path):
         try:
-            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+            creds = Credentials.from_authorized_user_file(token_path, settings.SCOPES)
             logger.info(f"Token expiry from file: {creds.expiry}")
             logger.info(f"Current UTC time: {datetime.datetime.now(pytz.utc)}")
         except Exception as e:

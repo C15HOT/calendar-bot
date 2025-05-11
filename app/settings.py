@@ -14,7 +14,10 @@ class Settings(BaseSettings):
     server_address: str
     is_debug: str
     admin_id: str
-
+    SCOPES = [
+        'https://www.googleapis.com/auth/calendar.readonly',  # Для чтения событий
+        'https://www.googleapis.com/auth/calendar.events'  # Для создания, редактирования и удаления событий
+    ]
 
 
     @property
