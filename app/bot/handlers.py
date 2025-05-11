@@ -8,7 +8,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from app.bot.keyboards import get_auth_keyboard
+from app.bot.keyboards import get_auth_keyboard, get_postpone_keyboard
 from app.settings import get_settings
 
 
@@ -181,7 +181,7 @@ async def send_event_reminders(bot: Bot):
                     minutes = total_minutes % 60
                     time_string = f"{hours} hours {minutes} minutes"
                 await bot.send_message(chat_id=user_id,
-                                       text=f"<b>Reminder: </b> {color} {event_summary} will start in {time_string}", parse_mode="HTML")
+                                       text=f"<b>Reminder: </b> {color} {event_summary} will start in {time_string}", parse_mode="HTML", reply_markup=get_postpone_keyboard(event_id=1)) #TODO
             logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
 
 

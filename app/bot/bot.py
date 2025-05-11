@@ -76,6 +76,8 @@ async def auth_handler(message: Message, state: FSMContext):
         "Please authorize access to your Google Calendar by visiting this URL:",
         reply_markup=builder.as_markup()
     )
+
+
 @dp.callback_query(F.data == "reauth")
 async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Handles the re-authorization callback."""

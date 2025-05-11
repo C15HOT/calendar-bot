@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
         drop_pending_updates=True
     )
     await start_bot()
-    scheduler.add_job(send_event_reminders, "interval", hours=1, args=(bot,))
+    scheduler.add_job(send_event_reminders, "interval", seconds=10, args=(bot,))
     scheduler.start()
     yield
     await stop_bot()

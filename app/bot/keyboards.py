@@ -16,6 +16,20 @@ def get_auth_keyboard():
     return keyboard
 
 
+def get_postpone_keyboard(event_id: int):
+    """Creates an inline keyboard for postponing a reminder."""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="15 minutes", callback_data=f"postpone:{event_id}:15"),
+            InlineKeyboardButton(text="30 minutes", callback_data=f"postpone:{event_id}:30"),
+        ],
+        [
+            InlineKeyboardButton(text="1 hour", callback_data=f"postpone:{event_id}:60"),
+            InlineKeyboardButton(text="2 hours", callback_data=f"postpone:{event_id}:120"),
+        ],
+    ])
+    return keyboard
+
 def main_keyboard(user_id: int, first_name: str) -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     url_applications = f"{settings.BASE_SITE}/applications?user_id={user_id}"
