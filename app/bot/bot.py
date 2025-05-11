@@ -23,7 +23,7 @@ CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.js
 USER_CREDENTIALS_DIR = "/service/user_credentials"
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()

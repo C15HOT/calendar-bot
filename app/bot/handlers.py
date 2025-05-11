@@ -18,7 +18,7 @@ SCOPES = [
 ]
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')
 USER_CREDENTIALS_DIR = "/service/user_credentials"
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
@@ -121,10 +121,15 @@ async def save_credentials(user_id, credentials):
 
 async def get_upcoming_events(user_id, num_events=5):
     service = get_calendar_service(user_id)
-    if not service:
-        return "Please authorize the bot to access your OpenAI Calendar first. Use the /auth command."
 
-    calendars = await get_calendar_list(service)
+    if isinstance(service, tuple): #If response is tuple
+        return service
+    try:
+        calendars = await get_calendar_list(service)
+    except Exception as e:
+        logger.error(f"An error occurred while fetching calendar list: {e}")
+        return "An error occurred while fetching the calendar list. Please try again later.", get_auth_keyboard()
+
     if not calendars:
         return "No calendars found or could not retrieve the calendar list."
 
