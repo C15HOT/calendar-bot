@@ -46,7 +46,7 @@ async def start_handler(message: Message):
 async def auth_handler(message: Message, state: FSMContext):
     user_id = message.from_user.id
     flow = InstalledAppFlow.from_client_secrets_file(
-        CREDENTIALS_FILE, settings.SCOPES, redirect_uri=f"{settings.server_address}/callback"
+        CREDENTIALS_FILE, settings.scopes, redirect_uri=f"{settings.server_address}/callback"
     )
     auth_state = secrets.token_urlsafe(16)
     composite_state = f"{auth_state}|{user_id}"
@@ -81,7 +81,7 @@ async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMCon
     """Handles the re-authorization callback."""
     user_id = callback_query.from_user.id
     flow = InstalledAppFlow.from_client_secrets_file(
-        CREDENTIALS_FILE, settings.SCOPES, redirect_uri=f"{settings.server_address}/callback"
+        CREDENTIALS_FILE, settings.scopes, redirect_uri=f"{settings.server_address}/callback"
     )
     auth_state = secrets.token_urlsafe(16)
     composite_state = f"{auth_state}|{user_id}"

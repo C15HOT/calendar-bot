@@ -46,7 +46,7 @@ def get_calendar_service(user_id):
 
     if os.path.exists(token_path):
         try:
-            creds = Credentials.from_authorized_user_file(token_path, settings.SCOPES)
+            creds = Credentials.from_authorized_user_file(token_path, settings.scopes)
             logger.info(f"Token expiry from file: {creds.expiry}")
             logger.info(f"Current UTC time: {datetime.datetime.now(pytz.utc)}")
         except Exception as e:
