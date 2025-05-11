@@ -20,6 +20,16 @@ def get_postpone_keyboard(event_id: int):
     """Creates an inline keyboard for postponing a reminder."""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
+            InlineKeyboardButton(text="Remind later", callback_data=f"show_postpone_times:{event_id}"),
+        ]
+    ])
+    return keyboard
+
+
+def get_postpone_time_options_keyboard(event_id: int):
+    """Creates an inline keyboard with time options for postponing."""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
             InlineKeyboardButton(text="15 minutes", callback_data=f"postpone:{event_id}:15"),
             InlineKeyboardButton(text="30 minutes", callback_data=f"postpone:{event_id}:30"),
         ],
@@ -27,8 +37,12 @@ def get_postpone_keyboard(event_id: int):
             InlineKeyboardButton(text="1 hour", callback_data=f"postpone:{event_id}:60"),
             InlineKeyboardButton(text="2 hours", callback_data=f"postpone:{event_id}:120"),
         ],
+        [
+            InlineKeyboardButton(text="Cancel", callback_data=f"cancel_postpone:{event_id}"),  # Add a cancel button
+        ]
     ])
     return keyboard
+
 
 def main_keyboard(user_id: int, first_name: str) -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()

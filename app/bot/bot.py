@@ -17,6 +17,7 @@ import urllib.parse
 from .handlers import get_upcoming_events, get_calendar_color
 from .init_bot import bot, dp
 from app.settings import get_settings
+from .keyboards import get_postpone_time_options_keyboard
 
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')
 USER_CREDENTIALS_DIR = "/service/user_credentials"
@@ -77,6 +78,50 @@ async def auth_handler(message: Message, state: FSMContext):
         reply_markup=builder.as_markup()
     )
 
+
+@dp.callback_query(F.data.startswith("show_postpone_times:"))
+async def show_postpone_times(callback_query: types.CallbackQuery):
+    """Handles the callback query to show postpone time options."""
+    event_id = int(callback_query.data.split(":")[1])
+    keyboard = get_postpone_time_options_keyboard(event_id)
+    await callback_query.message.edit_reply_markup(reply_markup=keyboard)
+    await callback_query.answer()
+
+@dp.callback_query(F.data.startswith("cancel_postpone:"))
+async def cancel_postpone(callback_query: types.CallbackQuery):
+    """Handles the callback query to cancel postponing."""
+    event_id = int(callback_query.data.split(":")[1])
+    await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
+    await callback_query.answer("Postponing cancelled.")
+
+@dp.callback_query(F.data.startswith("postpone:"))
+async def postpone_reminder(callback_query: types.CallbackQuery):
+    pass
+    # """Handles the callback query for postponing a reminder."""
+    # user_id = callback_query.from_user.id
+    # data = callback_query.data.split(":")
+    # event_id = int(data[1])
+    # postpone_minutes = int(data[2])
+    #
+    # # Get event details (replace with your database lookup)
+    # # event_summary = "Your event summary"  # Fetch from db
+    # # event_start_time = datetime.datetime.now() # Fetch from db
+    #
+    # # Calculate new reminder time
+    # new_reminder_time = datetime.datetime.now(LOCAL_TIMEZONE) + datetime.timedelta(minutes=postpone_minutes)
+    #
+    # # Add a new job to the scheduler
+    # scheduler.add_job(
+    #     send_reminder,
+    #     'date',
+    #     run_date=new_reminder_time,
+    #     args=[bot, user_id, "заменить event_summary"]  # pass replace event_summary here
+    # )
+    #
+    # await bot.answer_callback_query(callback_query.id, text=f"Reminder postponed by {postpone_minutes} minutes!")
+    # await callback_query.message.edit_text(
+    #     text=f"Reminder postponed by {postpone_minutes} minutes!",
+    # )
 
 @dp.callback_query(F.data == "reauth")
 async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMContext):

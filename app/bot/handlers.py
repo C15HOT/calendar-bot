@@ -144,9 +144,7 @@ async def get_upcoming_events(user_id, num_events=5):
             else:
                 local_start_time = start_datetime.astimezone(LOCAL_TIMEZONE)
             all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
-    print('\n')
-    print(all_events)
-    print('\n')
+
     return all_events
 
 
