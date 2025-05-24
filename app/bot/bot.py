@@ -14,7 +14,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import secrets
 import urllib.parse
 
-from .handlers import get_upcoming_events, get_calendar_color
+from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text
 from .init_bot import bot, dp
 from app.settings import get_settings
 from .keyboards import get_postpone_time_options_keyboard, get_main_keyboard
@@ -204,10 +204,23 @@ async def create_event_handler(message: types.Message, state: FSMContext): # Cor
 @dp.message(EventCreation.waiting_for_text)
 async def process_event_details(message: types.Message, state: FSMContext):
     """Processes the event details entered by the user."""
-    event_details = message.text
-    # Здесь нужно обработать введенный пользователем текст (сохранить в БД, и т.д.)
-    await message.answer(f"Event details received: {event_details}")
-    await state.clear()  # Reset the state
+    user_id = str(message.from_user.id)  # Получаем ID пользователя
+    user_text = message.text
+
+    try:
+        # Вызываем функцию для создания события из текста
+        result = await create_event_from_text(user_id, user_text)
+
+        # Отправляем ответ пользователю
+        await message.reply(result)
+
+    except Exception as e:
+        logger.exception("An error occurred while processing event details")
+        await message.reply("Sorry, an error occurred. Please try again.")
+
+    finally:
+        # Сбрасываем состояние
+        await state.clear()
 
 async def start_bot():
     try:

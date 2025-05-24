@@ -8,10 +8,14 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+
 from app.bot.keyboards import get_auth_keyboard, get_postpone_keyboard
 from app.settings import get_settings
 
-
+from langchain_gigachat.chat_models import GigaChat
 
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')
 USER_CREDENTIALS_DIR = "/service/user_credentials"
@@ -19,8 +23,12 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
-
-
+giga = GigaChat(
+    # Для авторизации запросов используйте ключ, полученный в проекте GigaChat API
+    credentials={settings.gigachat_key},
+    verify_ssl_certs=False,
+)
+DEFAULT_CALENDAR_ID = 'primary'
 LOCAL_TIMEZONE = pytz.timezone('Europe/Moscow')
 
 def get_calendar_color(calendar_name: str) -> str:
@@ -37,10 +45,7 @@ def get_calendar_color(calendar_name: str) -> str:
     }
     return calendar_colors.get(calendar_name, "⬛️")  # Default color
 
-
-
-
-def get_calendar_service(user_id):
+async def get_creds(user_id):
     creds = None
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
 
@@ -52,7 +57,11 @@ def get_calendar_service(user_id):
         except Exception as e:
             logger.error(f"Error loading credentials from file for user {user_id}: {e}")
             creds = None  # Set creds to None if loading fails
+    return creds
 
+def get_calendar_service(user_id):
+    creds = await get_creds(user_id)
+    token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
     # Force refresh the access token if a refresh token exists
     if creds and creds.refresh_token:
         try:
@@ -197,3 +206,186 @@ def get_all_user_ids():
             except ValueError:
                 logger.warning(f"Invalid filename in credentials directory: {filename}")
     return user_ids
+
+
+
+# Функция для создания события в Google Calendar
+async def create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id=DEFAULT_CALENDAR_ID):
+    """
+    Creates an event in Google Calendar.
+    """
+    creds = await get_creds(user_id)
+    if creds is None:
+      logger.error("Failed to retrieve credentials for user.")
+      return False  # Или выбросить исключение
+
+    try:
+        service = build('calendar', 'v3', credentials=creds)
+
+        event = {
+            'summary': event_summary,
+            'description': event_description,
+            'start': {
+                'dateTime': start_time.isoformat(),
+                'timeZone': 'Europe/Moscow',  # Замените на ваш часовой пояс
+            },
+            'end': {
+                'dateTime': end_time.isoformat(),
+                'timeZone': 'Europe/Moscow',  # Замените на ваш часовой пояс
+            },
+        }
+
+        event = service.events().insert(calendarId=calendar_id, body=event).execute()
+        logger.info(f'Event created in calendar {calendar_id}: {event.get("htmlLink")}')
+        return True
+    except HttpError as error:
+        logger.error(f"An error occurred while creating the event: {error}")
+        return False
+
+
+# Функция для обработки запроса пользователя, классификации и создания события (ОБЪЕДИНЕННАЯ)
+async def create_event_from_text(user_id, user_text):
+    """
+    Обрабатывает текст пользователя, классифицирует событие и создает его в Google Calendar.
+    """
+
+    # 1. Инициализация LLM (можно вынести за пределы функции, если используется часто)
+    # llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.7)
+
+    # 2. Создание prompt template
+    template = """
+    You are a helpful assistant that extracts event details from user input.
+    Given the following text, extract the event summary, event_description, date, start time, and end time.
+
+    If the date isn't given, assume the current date.
+    If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
+    If there is no explicit event_description, provide a short description of what the event is.
+
+    Return the data in the following JSON format:
+    ```json
+    {{
+      "event_summary": "...",
+      "event_description": "...",
+      "date": "YYYY-MM-DD",
+      "start_time": "HH:MM",
+      "end_time": "HH:MM"
+    }}
+    ```
+
+    User Text: {user_text}
+    """
+
+    prompt = PromptTemplate(template=template, input_variables=["user_text"])
+
+    # 3. Создание LLM Chain
+    llm_chain = LLMChain(prompt=prompt, llm=giga)
+
+    # 4. Запуск LLM Chain
+    llm_response = llm_chain.run(user_text)
+
+    # 5. Разбор ответа LLM
+    try:
+        import json
+        event_details = json.loads(llm_response.strip())
+        logger.info(f"LLM response: {event_details}")
+
+        event_summary = event_details.get("event_summary", "Meeting")
+        event_description = event_details.get("event_description", "A scheduled event")
+        date_str = event_details.get("date")
+        start_time_str = event_details.get("start_time")
+        end_time_str = event_details.get("end_time")
+
+        # Проверка, что время указано
+        if start_time_str == "NONE" or not start_time_str:
+            return "Sorry, I need a specific time to schedule the event."
+
+        # Преобразование даты и времени в объекты datetime
+        date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        start_time = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%H:%M").time())
+        # Если не указано время окончания - прибавляем час
+        if end_time_str == None or not end_time_str:
+            end_time = start_time + datetime.timedelta(hours=1)
+        else:
+            end_time = datetime.datetime.combine(date, datetime.datetime.strptime(end_time_str, "%H:%M").time())
+
+        # 6. Получение списка календарей
+        creds = await get_creds(user_id)
+        if creds is None:
+            return "Sorry, could not retrieve credentials."
+
+        service = build('calendar', 'v3', credentials=creds)
+        available_calendars = await get_calendar_list(service)
+
+        # 7. Выбор подходящего календаря
+        calendar_id = await choose_calendar(user_id, event_summary, event_description, available_calendars)
+
+        # 8. Создание события в выбранном календаре
+        success = await create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id)
+
+        if success:
+            # Находим имя календаря по его ID
+            calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
+            return f"Event created in {calendar_name} calendar."
+        else:
+            return "Sorry, there was an error creating the event."
+
+    except json.JSONDecodeError as e:
+        logger.error(f"JSONDecodeError: {e}, Response: {llm_response}")
+        return "Sorry, I couldn't understand the details. Please rephrase your request."
+    except ValueError as e:
+        logger.error(f"ValueError: {e}")
+        return "Sorry, I couldn't parse the date or time. Please check the format."
+    except Exception as e:
+        logger.exception("An unexpected error occurred")
+        return "Sorry, there was an unexpected error. Please try again."
+
+
+# Функция для выбора календаря на основе названия и описания события
+async def choose_calendar(user_id, event_summary, event_description, available_calendars):
+    """
+    Chooses the most appropriate calendar based on event summary, description, and available calendars.
+    """
+
+    # 1. Инициализация LLM
+    # llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.5) #Уменьшил temperature для большей предсказуемости
+
+    # 2. Создание prompt template
+    template = """
+    You are a helpful assistant that selects the best Google Calendar to put an event into.
+
+    Given the following event summary and description, and a list of Google Calendars with their names, choose the *single best* calendar for the event.
+
+    Your answer *MUST* be the *EXACT* name of one of the available calendars. If none of the calendars are appropriate, return "Стандартный".
+
+    Event Summary: {event_summary}
+    Event Description: {event_description}
+
+    Available Calendars:
+    {calendar_list}
+
+    Best Calendar:
+    """
+
+    prompt = PromptTemplate(template=template, input_variables=["event_summary", "event_description", "calendar_list"])
+
+    # Формируем список календарей для prompt
+    calendar_names = [calendar['summary'] for calendar in available_calendars]
+    calendar_list_str = "\n".join(calendar_names)
+
+    # 3. Создание LLM Chain
+    llm_chain = LLMChain(prompt=prompt, llm=giga)
+
+    # 4. Запуск LLM Chain
+    chosen_calendar_name = llm_chain.run({"event_summary": event_summary, "event_description": event_description, "calendar_list": calendar_list_str})
+    chosen_calendar_name = chosen_calendar_name.strip()  #Удалите лишние пробелы
+
+    logger.info(f"Chosen calendar name: {chosen_calendar_name}")
+
+    # 5. Поиск calendar_id по имени
+    for calendar in available_calendars:
+        if calendar['summary'] == chosen_calendar_name:
+            return calendar['id']
+
+    logger.warning(f"Calendar '{chosen_calendar_name}' not found. Using default calendar.")
+    return DEFAULT_CALENDAR_ID  # Если не нашли, возвращаем стандартный
