@@ -192,13 +192,13 @@ async def events_handler(message: Message):
 
 
 @dp.message(F.text == "Создать событие")
-async def create_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
-    """Handles the callback query for the 'Create Event' button."""
-    await callback_query.message.answer(
+async def create_event_handler(message: types.Message, state: FSMContext): # Corrected argument type
+    """Handles the message for the 'Create Event' button."""
+    await message.answer( # Corrected to message.answer
         "Please enter the event details:",
     )
     await state.set_state(EventCreation.waiting_for_text)
-    await callback_query.answer('Тестовый ответ')
+    # No callback_query.answer needed
 
 
 @dp.message(EventCreation.waiting_for_text)
