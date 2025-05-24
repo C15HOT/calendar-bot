@@ -263,15 +263,13 @@ async def create_event_from_text(user_id, user_text):
     If there is no explicit event_description, provide a short description of what the event is.
 
     Return the data in the following JSON format:
-    ```json
-    {{
+    {
       "event_summary": "...",
       "event_description": "...",
       "date": "YYYY-MM-DD",
       "start_time": "HH:MM",
       "end_time": "HH:MM"
-    }}
-    ```
+    }
 
     User Text: {user_text}
     """
