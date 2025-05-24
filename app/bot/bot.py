@@ -17,7 +17,7 @@ import urllib.parse
 from .handlers import get_upcoming_events, get_calendar_color
 from .init_bot import bot, dp
 from app.settings import get_settings
-from .keyboards import get_postpone_time_options_keyboard
+from .keyboards import get_postpone_time_options_keyboard, get_main_keyboard
 
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')
 USER_CREDENTIALS_DIR = "/service/user_credentials"
@@ -38,10 +38,18 @@ LOCAL_TIMEZONE = pytz.timezone('Europe/Moscow')
 class AuthState(StatesGroup):
     waiting_for_auth_code = State()
 
+class EventCreation(StatesGroup):
+    waiting_for_text = State()
+
+
+
 @user_router.message(CommandStart())
 async def start_handler(message: Message):
+    keyboard = get_main_keyboard()
     await message.answer(
-        "Hello! I'm your Google Calendar assistant. Use /auth to authorize me and /events to see your upcoming events.")
+        "Hello! I'm your Google Calendar assistant. Use /auth to authorize me and /events to see your upcoming events.", reply_markup=keyboard)
+
+
 
 @user_router.message(F.text == '/auth')
 async def auth_handler(message: Message, state: FSMContext):
@@ -183,6 +191,23 @@ async def events_handler(message: Message):
     )
 
 
+@dp.callback_query(F.data == "Создать событие")
+async def create_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """Handles the callback query for the 'Create Event' button."""
+    await callback_query.message.answer(
+        "Please enter the event details:",
+    )
+    await state.set_state(EventCreation.waiting_for_text)
+    await callback_query.answer('Тестовый ответ')
+
+
+@dp.message(EventCreation.waiting_for_text)
+async def process_event_details(message: types.Message, state: FSMContext):
+    """Processes the event details entered by the user."""
+    event_details = message.text
+    # Здесь нужно обработать введенный пользователем текст (сохранить в БД, и т.д.)
+    await message.answer(f"Event details received: {event_details}")
+    await state.clear()  # Reset the state
 
 async def start_bot():
     try:
