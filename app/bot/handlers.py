@@ -1,6 +1,8 @@
 import os
 import logging
 import datetime
+from dataclasses import dataclass
+
 from aiogram import Bot
 import pytz
 from google.auth.transport.requests import Request
@@ -11,6 +13,7 @@ from googleapiclient.errors import HttpError
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from langchain_core.tools import tool
 
 from app.bot.keyboards import get_auth_keyboard, get_postpone_keyboard
 from app.settings import get_settings
@@ -243,7 +246,25 @@ async def create_google_calendar_event(user_id, event_summary, event_description
         logger.error(f"An error occurred while creating the event: {error}")
         return False
 
+from pydantic import BaseModel, Field
+from langchain.schema import OutputParserException
+from langchain.output_parsers import PydanticOutputParser
+from typing import Optional
+class EventDetails(BaseModel):
+    event_summary: str = Field(description="The summary of the event")
+    event_description: str = Field(description="A detailed description of the event")
+    date: str = Field(description="The date of the event in YYYY-MM-DD format")
+    start_time: str = Field(description="The start time of the event in HH:MM format")
+    end_time: Optional[str] = Field(default=None, description="The end time of the event in HH:MM format, if available")
 
+# 2. Создаем tool (Function Calling)
+@tool
+def extract_event_details(user_text: str) -> EventDetails:
+    """Extracts the event summary, description, date, start time, and end time from user input.  DO NOT ask the user for any information.  Extract the information directly from the provided text."""
+    pass
+
+from langchain.agents import initialize_agent, AgentType #Импортируем Agent
+from langchain.schema import OutputParserException #Для обработки ошибок
 # Функция для обработки запроса пользователя, классификации и создания события (ОБЪЕДИНЕННАЯ)
 async def create_event_from_text(user_id, user_text):
     """
@@ -254,36 +275,60 @@ async def create_event_from_text(user_id, user_text):
     # llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.7)
 
     # 2. Создание prompt template
+    # template = """
+    # You are a helpful assistant that extracts event details from user input.
+    # Given the following text, extract the event summary, event_description, date, start time, and end time.
+    #
+    # If the date isn't given, assume the current date.
+    # If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
+    # If there is no explicit event_description, provide a short description of what the event is.
+    #
+    # Return the data in the following JSON format:
+    # {
+    #   "event_summary": "...",
+    #   "event_description": "...",
+    #   "date": "YYYY-MM-DD",
+    #   "start_time": "HH:MM",
+    #   "end_time": "HH:MM"
+    # }
+    #
+    # User Text: {user_text}
+    # """
+    #
+    # prompt = PromptTemplate(template=template, input_variables=["user_text"])
+    #
+    # # 3. Создание LLM Chain
+    # llm_chain = LLMChain(prompt=prompt, llm=giga)
+    #
+    # # 4. Запуск LLM Chain
+    # llm_response = llm_chain.run({"user_text": user_text})
+
+
+    output_parser = PydanticOutputParser(pydantic_object=EventDetails)
     template = """
-    You are a helpful assistant that extracts event details from user input.
-    Given the following text, extract the event summary, event_description, date, start time, and end time.
+       You are a helpful assistant that extracts event details from user input.
+       Given the following text, extract the event summary, event_description, date, start time, and end time.
 
-    If the date isn't given, assume the current date.
-    If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
-    If there is no explicit event_description, provide a short description of what the event is.
+       If the date isn't given, assume the current date.
+       If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
 
-    Return the data in the following JSON format:
-    {
-      "event_summary": "...",
-      "event_description": "...",
-      "date": "YYYY-MM-DD",
-      "start_time": "HH:MM",
-      "end_time": "HH:MM"
-    }
+       Return the data in the following format:
+       {format_instructions}
 
-    User Text: {user_text}
-    """
+       User Text: {user_text}
+       """
 
-    prompt = PromptTemplate(template=template, input_variables=["user_text"])
+    prompt = PromptTemplate(
+        template=template,
+        input_variables=["user_text"],
+        partial_variables={"format_instructions": output_parser.get_format_instructions()}
+    )
 
     # 3. Создание LLM Chain
     llm_chain = LLMChain(prompt=prompt, llm=giga)
-
-    # 4. Запуск LLM Chain
-    llm_response = llm_chain.run({"user_text": user_text})
-
     # 5. Разбор ответа LLM
     try:
+        llm_response = llm_chain.run({"user_text": user_text})
         import json
         event_details = json.loads(llm_response.strip())
         logger.info(f"LLM response: {event_details}")
