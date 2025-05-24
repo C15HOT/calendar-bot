@@ -191,7 +191,7 @@ async def events_handler(message: Message):
     )
 
 
-@dp.message(F.data == "Создать событие")
+@dp.message(F.text == "Создать событие")
 async def create_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Handles the callback query for the 'Create Event' button."""
     await callback_query.message.answer(
