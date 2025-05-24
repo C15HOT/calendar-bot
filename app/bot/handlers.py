@@ -280,7 +280,7 @@ async def create_event_from_text(user_id, user_text):
     llm_chain = LLMChain(prompt=prompt, llm=giga)
 
     # 4. Запуск LLM Chain
-    llm_response = llm_chain.run(user_text)
+    llm_response = llm_chain.run({"user_text": user_text})
 
     # 5. Разбор ответа LLM
     try:
