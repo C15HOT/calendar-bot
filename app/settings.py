@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     server_address: str
     is_debug: str
     admin_id: str
-
+    gigachat_key: str
 
     @property
     def scopes(self):
