@@ -8,7 +8,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from langchain.llms import OpenAI
+
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
@@ -23,15 +23,16 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
 giga = GigaChat(
     # Для авторизации запросов используйте ключ, полученный в проекте GigaChat API
-    credentials={settings.gigachat_key},
+    credentials=settings.gigachat_key,
     verify_ssl_certs=False,
 )
 DEFAULT_CALENDAR_ID = 'primary'
 LOCAL_TIMEZONE = pytz.timezone('Europe/Moscow')
 
-def get_calendar_color(calendar_name: str) -> str:
+async def get_calendar_color(calendar_name: str) -> str:
     """
     Assigns a color to a calendar based on its name.
     """
@@ -59,7 +60,7 @@ async def get_creds(user_id):
             creds = None  # Set creds to None if loading fails
     return creds
 
-def get_calendar_service(user_id):
+async def get_calendar_service(user_id):
     creds = await get_creds(user_id)
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
     # Force refresh the access token if a refresh token exists
@@ -126,7 +127,7 @@ async def save_credentials(user_id, credentials):
 
 
 async def get_upcoming_events(user_id, num_events=5):
-    service = get_calendar_service(user_id)
+    service = await get_calendar_service(user_id)
 
     if isinstance(service, tuple): #If response is tuple
         return service
@@ -165,7 +166,7 @@ async def send_event_reminders(bot: Bot):
     Sends event reminders to all authorized users.
     """
     # Get the list of user IDs from the credentials directory
-    user_ids = get_all_user_ids()
+    user_ids = await get_all_user_ids()
 
     now = datetime.datetime.now(LOCAL_TIMEZONE)# Замените на ваш часовой пояс
 
@@ -193,7 +194,7 @@ async def send_event_reminders(bot: Bot):
 
 
 
-def get_all_user_ids():
+async def get_all_user_ids():
     """
     Gets all user IDs by listing files in the credentials directory.
     """
