@@ -255,9 +255,10 @@ async def create_event_from_text(user_id, user_text):
     # llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.7)
 
     # 2. Создание prompt template
+    current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     template = f"""
         Вы — полезный ассистент, который извлекает детали события из введенного пользователем текста.
-        Текущая дата и время: {{current_datetime}}.
+        Текущая дата и время: {current_datetime}.
 
         Учитывая следующий текст, извлеките краткое описание события, полное описание события, дату, время начала и время окончания.
 
@@ -282,7 +283,6 @@ async def create_event_from_text(user_id, user_text):
         Текст пользователя: {{user_text}}
         """
 
-    current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     prompt = PromptTemplate(template=template, input_variables=["user_text", "current_datetime"])
 
