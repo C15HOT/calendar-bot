@@ -275,11 +275,8 @@ async def create_event_from_text(user_id, user_text):
 
     prompt = PromptTemplate(template=template, input_variables=["user_text"])
 
-    # 3. Создание LLM Chain
-    llm_chain = LLMChain(prompt=prompt, llm=giga)
-
     # 4. Запуск LLM Chain
-    llm_response = llm_chain.invoke({"user_text": user_text})
+    llm_response = giga.invoke(prompt.format(user_text=user_text))
 
     # 5. Разбор ответа LLM
     try:
