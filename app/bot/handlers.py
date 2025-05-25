@@ -329,7 +329,11 @@ async def create_event_from_text(user_id, user_text):
             calendar_id = DEFAULT_CALENDAR_ID
             calendar_name = 'Стандартный'
         # 8. Создание события в выбранном календаре
-
+        print('\n')
+        print(calendar_id)
+        print(calendar_name)
+        print('12312312312312312312')
+        print('\n')
         event_details.calendar_id = calendar_id
         event_details.calendar_name = calendar_name
         event_details.start_time = start_time
