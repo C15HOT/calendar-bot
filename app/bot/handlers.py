@@ -256,7 +256,7 @@ async def create_event_from_text(user_id, user_text):
     Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format
     If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
     If there is no explicit event_description, provide a short description of what the event is.
-    
+    Ни в коем случае нельзя создавать события раньше, чем сегодняшняя дата. Если ты не уверен как интерпретировать дату, посмотри в календарь и попытайся определить соответствие дней недели относительно текущей даты
     Return the data in the following JSON format:
     {{
       "event_summary": "...",
