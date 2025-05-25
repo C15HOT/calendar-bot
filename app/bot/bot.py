@@ -226,7 +226,8 @@ async def process_event_details(message: types.Message, state: FSMContext):
         )
 
         # Save the event details temporarily in the state
-        await state.update_data(event_description=result)
+
+        await state.update_data(**result.__dict__)
 
         await state.set_state(EventCreation.waiting_for_commit)
         # # Отправляем ответ пользователю
@@ -267,14 +268,24 @@ async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMC
         await callback_query.message.answer(f"Event created in {event.calendar_name} calendar.")
     else:
         await callback_query.answer("Sorry, there was an error creating the event.")
-
+    await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
     await state.clear()
+
 @dp.callback_query(F.data == "reject_event")
 async def reject_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Rejects the event and resets the state."""
     await callback_query.message.answer("Event rejected.")
     await callback_query.answer("Event rejected!")
+    await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
     await state.clear()
+
+
+
+
+
+
+
+
 
 async def start_bot():
     try:
