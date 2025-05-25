@@ -229,7 +229,7 @@ async def process_event_details(message: types.Message, state: FSMContext):
         print(result)
         print(type(result))
         await state.update_data(event_data=result)
-
+        await state.update_date(data='123')
         await state.set_state(EventCreation.waiting_for_commit)
         # # Отправляем ответ пользователю
         # await message.reply(result)
@@ -247,7 +247,7 @@ async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMC
     """Confirms the event and saves it."""
     event_data = await state.get_data()
     event = event_data.get("event_description")
-
+    print(event_data)
     if event is None:
         await callback_query.answer("Error: Event data not found.")
         await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
