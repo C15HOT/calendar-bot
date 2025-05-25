@@ -249,25 +249,27 @@ async def create_google_calendar_event(user_id, event_summary, event_description
 # Функция для обработки запроса пользователя, классификации и создания события (ОБЪЕДИНЕННАЯ)
 async def create_event_from_text(user_id, user_text):
     system_template = """
-    You are a helpful assistant that extracts event details from user input.
-    Given the following text, extract the event summary, event_description, date, start time, and end time.
+        You are a helpful assistant that extracts event details from user input.
+        Given the following text, extract the event summary, event_description, date, start time, and end time.
 
-    If the date isn't given, assume the current date.
-    Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format
-    If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
-    If there is no explicit event_description, provide a short description of what the event is.
-    Ни в коем случае нельзя создавать события раньше, чем сегодняшняя дата. Если ты не уверен как интерпретировать дату, посмотри в календарь и попытайся определить соответствие дней недели относительно текущей даты
-    Return the data in the following JSON format:
-    {{
-      "event_summary": "...",
-      "event_description": "...",
-      "date": "YYYY-MM-DD",
-      "start_time": "HH:MM",
-      "end_time": "HH:MM"
-    }}
-    current date: {current_datetime}
-    User Text: {user_text}
-    """
+        If the date isn't given, assume the current date.
+        Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format.
+        If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
+        If there is no explicit event_description, provide a short description of what the event is.
+
+        **The event date must not be in the past.  If you are unsure about the date, double-check against the 'current date' and choose a future date.**
+
+        Return the data in the following JSON format:
+        {{
+          "event_summary": "...",
+          "event_description": "...",
+          "date": "YYYY-MM-DD",
+          "start_time": "HH:MM",
+          "end_time": "HH:MM"
+        }}
+        current date: {current_datetime}
+        User Text: {user_text}
+        """
     current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     prompt_template = ChatPromptTemplate.from_messages(
