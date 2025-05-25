@@ -255,13 +255,13 @@ async def create_event_from_text(user_id, user_text):
         You are a helpful assistant that extracts event details from user input.
         Given the following text, extract the event summary, event_description, date, start time, and end time.
 
-        If the date isn't given, assume the current date.
+        If the date isn't given in the text, **use the current date.**
         Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format.
         If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
         If there is no explicit event_description, provide a short description of what the event is.
 
-        The event date must not be in the past.  If you are unsure about the date, double-check against the 'current date' and choose a future date
-        Обязательно проверь, чтобы "date" была больше, чем "current date"
+        **Do not use dates from the past.  Any date generated must be equal to or later than the current date.**
+
         Return the data in the following JSON format:
         {{
           "event_summary": "...",
