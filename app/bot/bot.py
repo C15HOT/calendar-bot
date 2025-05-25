@@ -201,7 +201,7 @@ async def create_event_handler(message: types.Message, state: FSMContext): # Cor
     await state.set_state(EventCreation.waiting_for_text)
     # No callback_query.answer needed
 
-
+events_memory = {}
 @dp.message(EventCreation.waiting_for_text)
 async def process_event_details(message: types.Message, state: FSMContext):
     """Processes the event details entered by the user."""
@@ -225,10 +225,8 @@ async def process_event_details(message: types.Message, state: FSMContext):
             reply_markup=keyboard
         )
 
-        print('\n')
-        print(result)
-        print(type(result))
-        await state.update_data(event_data=result)
+        events_memory[user_id] = result
+
         await state.set_state(EventCreation.waiting_for_commit)
         # # Отправляем ответ пользователю
         # await message.reply(result)
@@ -246,9 +244,10 @@ async def process_event_details(message: types.Message, state: FSMContext):
 @dp.callback_query(F.data == "confirm_event")
 async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Confirms the event and saves it."""
-    event_data = await state.get_data()
-    event = event_data.get("event_data")
-    print(event_data)
+
+    user_id = str(callback_query.from_user.id)
+    event = events_memory.get(user_id)
+    print(event)
     if event is None:
         await callback_query.answer("Error: Event data not found.")
         await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
