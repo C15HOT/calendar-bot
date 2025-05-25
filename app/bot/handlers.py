@@ -391,6 +391,9 @@ async def choose_calendar(event_summary, event_description, available_calendars)
     logger.info(f"Chosen calendar name: {chosen_calendar_name}")
 
     # 5. Поиск calendar_id по имени
+    pprint(chosen_calendar_name)
+
+
     for calendar in available_calendars:
         if calendar['summary'] == chosen_calendar_name:
             return calendar['id']
