@@ -301,7 +301,7 @@ async def create_event_from_text(user_id, user_text):
 
         start_time = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%H:%M").time())
         # Если не указано время окончания - прибавляем час
-        if end_time_str == None or not end_time_str:
+        if end_time_str == "NONE" or not end_time_str:
             end_time = start_time + datetime.timedelta(hours=1)
         else:
             end_time = datetime.datetime.combine(date, datetime.datetime.strptime(end_time_str, "%H:%M").time())
