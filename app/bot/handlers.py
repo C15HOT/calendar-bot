@@ -257,7 +257,7 @@ async def create_event_from_text(user_id, user_text):
     If the time isn't given, return {{None}}. You *MUST* have a start time. If the user provides a duration, calculate the end time.
     If there is no explicit event_description, provide a short description of what the event is.
     
-    Return the data in the following JSON format:
+    Верни данные в таком JSON формате, ни в коем случае не используй символы разделители между ключами словаря
     {{
       "event_summary": "...",
       "event_description": "...",
