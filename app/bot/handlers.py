@@ -2,6 +2,8 @@ import json
 import os
 import logging
 import datetime
+from pprint import pprint
+
 from aiogram import Bot
 import pytz
 from google.auth.transport.requests import Request
@@ -254,32 +256,36 @@ async def create_event_from_text(user_id, user_text):
 
     # 2. Создание prompt template
     template = """
-    You are a helpful assistant that extracts event details from user input.
-    Given the following text, extract the event summary, event_description, date, start time, and end time.
+        You are a helpful assistant that extracts event details from user input.
+        Given the following text, extract the event summary, event_description, date, start time, and end time.
 
-    If the date isn't given, assume the current date.
-    If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
-    If there is no explicit event_description, provide a short description of what the event is.
+        If the date isn't given, assume the current date.
+        Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format
+        If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
+        If there is no explicit event_description, provide a short description of what the event is.
 
-    Return the data in the following JSON format:
-    {{
-      "event_summary": "...",
-      "event_description": "...",
-      "date": "YYYY-MM-DD",
-      "start_time": "HH:MM",
-      "end_time": "HH:MM"
-    }}
+        Return the data in the following JSON format:
+        {{
+          "event_summary": "...",
+          "event_description": "...",
+          "date": "YYYY-MM-DD",
+          "start_time": "HH:MM",
+          "end_time": "HH:MM"
+        }}
+        current date: {current_datetime}
+        User Text: {user_text}
+        """
 
-    User Text: {user_text}
-    """
+    current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    prompt = PromptTemplate(template=template, input_variables=["user_text"])
+    prompt = PromptTemplate(template=template, input_variables=["user_text", "current_datetime"])
 
     # 4. Запуск LLM Chain
-    llm_response = giga.invoke(prompt.format(user_text=user_text))
+    llm_response = giga.invoke(prompt.format(user_text=user_text, current_datetime=current_datetime))
 
     # 5. Разбор ответа LLM
     try:
+        pprint(llm_response.content)
         response_content = llm_response.content
         event_data = json.loads(response_content)
         logger.info(f"LLM response: {event_data}")
