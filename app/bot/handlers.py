@@ -321,10 +321,16 @@ async def create_event_from_text(user_id, user_text):
 
         # 7. Выбор подходящего календаря
         calendar_id = await choose_calendar(event_summary, event_description, available_calendars)
-
-        # 8. Создание события в выбранном календаре
-        event_details.calendar_id = calendar_id
+        print('\n')
+        print(calendar_id)
+        print('\n')
         calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
+        if not calendar_id:
+            calendar_id = DEFAULT_CALENDAR_ID
+            calendar_name = 'Стандартный'
+        # 8. Создание события в выбранном календаре
+
+        event_details.calendar_id = calendar_id
         event_details.calendar_name = calendar_name
         event_details.start_time = start_time
         event_details.end_time = end_time
