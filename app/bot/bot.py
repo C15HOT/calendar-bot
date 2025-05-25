@@ -225,8 +225,10 @@ async def process_event_details(message: types.Message, state: FSMContext):
             reply_markup=keyboard
         )
 
-
-        await state.set_data(**result.__dict__)
+        print('\n')
+        print(result)
+        print(type(result))
+        await state.update_data(event_data=result)
 
         await state.set_state(EventCreation.waiting_for_commit)
         # # Отправляем ответ пользователю
