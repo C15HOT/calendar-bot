@@ -211,6 +211,8 @@ class EventDetails:
     date: str
     start_time: str
     end_time: str
+    calendar_id: str
+    calendar_name: str
 
 # Функция для создания события в Google Calendar
 async def create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id=DEFAULT_CALENDAR_ID):
@@ -320,14 +322,18 @@ async def create_event_from_text(user_id, user_text):
         calendar_id = await choose_calendar(event_summary, event_description, available_calendars)
 
         # 8. Создание события в выбранном календаре
-        success = await create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id)
-
-        if success:
-            # Находим имя календаря по его ID
-            calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
-            return f"Event created in {calendar_name} calendar."
-        else:
-            return "Sorry, there was an error creating the event."
+        event_details.calendar_id = calendar_id
+        calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
+        event_details.calendar_name = calendar_name
+        return event_details
+        # success = await create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id)
+        #
+        # if success:
+        #     # Находим имя календаря по его ID
+        #     calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
+        #     return f"Event created in {calendar_name} calendar."
+        # else:
+        #     return "Sorry, there was an error creating the event."
 
     except json.JSONDecodeError as e:
         logger.error(f"JSONDecodeError: {e}, Response: {response}")

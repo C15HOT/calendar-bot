@@ -4,7 +4,7 @@ import logging
 
 from aiogram.filters import CommandStart
 from aiogram import Bot, types, Router, F
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 import pytz
@@ -14,7 +14,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import secrets
 import urllib.parse
 
-from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text
+from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text, create_google_calendar_event
 from .init_bot import bot, dp
 from app.settings import get_settings
 from .keyboards import get_postpone_time_options_keyboard, get_main_keyboard
@@ -40,6 +40,7 @@ class AuthState(StatesGroup):
 
 class EventCreation(StatesGroup):
     waiting_for_text = State()
+    waiting_for_commit = State()
 
 
 
@@ -211,8 +212,25 @@ async def process_event_details(message: types.Message, state: FSMContext):
         # Вызываем функцию для создания события из текста
         result = await create_event_from_text(user_id, user_text)
 
-        # Отправляем ответ пользователю
-        await message.reply(result)
+        # Create inline keyboard for confirmation
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Подтвердить", callback_data="confirm_event")],
+            [InlineKeyboardButton(text="Отклонить", callback_data="reject_event")]
+        ])
+
+        # Отправляем пользователю предварительный просмотр события с кнопками
+        await message.answer(
+            f"Предварительный просмотр события:\n{result.calendar_name} "
+            f"\n{result.event_summary}\n{result.date}\n{result.start_time}\n{result.end_time}",
+            reply_markup=keyboard
+        )
+
+        # Save the event details temporarily in the state
+        await state.update_data(event_description=result)
+
+        await state.set_state(EventCreation.waiting_for_commit)
+        # # Отправляем ответ пользователю
+        # await message.reply(result)
 
     except Exception as e:
         logger.exception("An error occurred while processing event details")
@@ -221,6 +239,30 @@ async def process_event_details(message: types.Message, state: FSMContext):
     finally:
         # Сбрасываем состояние
         await state.clear()
+
+@dp.callback_query(F.data == "confirm_event")
+async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """Confirms the event and saves it."""
+    event_data = await state.get_data()
+    event = event_data.get("event_description")
+    user_id = str(callback_query.from_user.id)
+
+    success = await create_google_calendar_event(user_id, event.event_summary, event.event_description, event.start_time, event.end_time, event.calendar_id)
+
+    if success:
+
+        await callback_query.message.answer(f"Event created in {event.calendar_name} calendar.")
+    else:
+        await callback_query.answer("Sorry, there was an error creating the event.")
+
+    await state.clear()
+
+@dp.callback_query(F.data == "reject_event")
+async def reject_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """Rejects the event and resets the state."""
+    await callback_query.message.answer("Event rejected.")
+    await callback_query.answer("Event rejected!")
+    await state.clear()
 
 async def start_bot():
     try:
