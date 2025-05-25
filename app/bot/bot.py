@@ -245,18 +245,30 @@ async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMC
     """Confirms the event and saves it."""
     event_data = await state.get_data()
     event = event_data.get("event_description")
+    print(event_data)
+    print(event)
+    if event is None:
+        await callback_query.answer("Error: Event data not found.")
+        await state.clear()
+        return
+
     user_id = str(callback_query.from_user.id)
 
-    success = await create_google_calendar_event(user_id, event.event_summary, event.event_description, event.start_time, event.end_time, event.calendar_id)
+    success = await create_google_calendar_event(
+        user_id,
+        event.event_summary,
+        event.event_description,
+        event.start_time,
+        event.end_time,
+        event.calendar_id
+    )
 
     if success:
-
         await callback_query.message.answer(f"Event created in {event.calendar_name} calendar.")
     else:
         await callback_query.answer("Sorry, there was an error creating the event.")
 
     await state.clear()
-
 @dp.callback_query(F.data == "reject_event")
 async def reject_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Rejects the event and resets the state."""
