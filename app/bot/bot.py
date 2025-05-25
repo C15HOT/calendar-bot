@@ -229,10 +229,11 @@ async def process_event_details(message: types.Message, state: FSMContext):
         print(result)
         print(type(result))
         await state.update_data(event_data=result)
-        await state.set_data(data={'data': 'data'})
         await state.set_state(EventCreation.waiting_for_commit)
         # # Отправляем ответ пользователю
         # await message.reply(result)
+        event_data = await state.get_data()
+        print(event_data)
 
     except Exception as e:
         logger.exception("An error occurred while processing event details")
@@ -246,7 +247,7 @@ async def process_event_details(message: types.Message, state: FSMContext):
 async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Confirms the event and saves it."""
     event_data = await state.get_data()
-    event = event_data.get("event_description")
+    event = event_data.get("event_data")
     print(event_data)
     if event is None:
         await callback_query.answer("Error: Event data not found.")
