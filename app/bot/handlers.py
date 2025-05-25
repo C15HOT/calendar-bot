@@ -254,7 +254,7 @@ async def create_event_from_text(user_id, user_text):
 
     If the date isn't given, assume the current date.
     Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format
-    If the time isn't given, return {None}. You *MUST* have a start time. If the user provides a duration, calculate the end time.
+    If the time isn't given, return {{None}}. You *MUST* have a start time. If the user provides a duration, calculate the end time.
     If there is no explicit event_description, provide a short description of what the event is.
     
     Return the data in the following JSON format:
