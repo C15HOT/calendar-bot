@@ -393,7 +393,8 @@ async def choose_calendar(event_summary, event_description, available_calendars)
     # 5. Поиск calendar_id по имени
     pprint(chosen_calendar_name)
 
-
+    if not chosen_calendar_name:
+        return DEFAULT_CALENDAR_ID
     for calendar in available_calendars:
         if calendar['summary'] == chosen_calendar_name:
             return calendar['id']
