@@ -284,7 +284,7 @@ async def create_event_from_text(user_id, user_text):
         """
 
 
-    prompt = PromptTemplate(template=template, input_variables=["user_text", "current_datetime"])
+    prompt = PromptTemplate(template=template, input_variables=["user_text"])
 
     # 4. Запуск LLM Chain
     llm_response = giga.invoke(prompt.format(user_text=user_text))
