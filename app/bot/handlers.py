@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from langchain_core.prompts import ChatPromptTemplate
 
 from app.bot.keyboards import get_auth_keyboard, get_postpone_keyboard
 from app.settings import get_settings
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-giga = GigaChat(
+llm = GigaChat(
     # Для авторизации запросов используйте ключ, полученный в проекте GigaChat API
     credentials=settings.gigachat_key,
     verify_ssl_certs=False,
@@ -247,54 +248,39 @@ async def create_google_calendar_event(user_id, event_summary, event_description
 
 # Функция для обработки запроса пользователя, классификации и создания события (ОБЪЕДИНЕННАЯ)
 async def create_event_from_text(user_id, user_text):
-    """
-    Обрабатывает текст пользователя, классифицирует событие и создает его в Google Calendar.
-    """
+    system_template = """
+    You are a helpful assistant that extracts event details from user input.
+    Given the following text, extract the event summary, event_description, date, start time, and end time.
 
-    # 1. Инициализация LLM (можно вынести за пределы функции, если используется часто)
-    # llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.7)
-
-    # 2. Создание prompt template
+    If the date isn't given, assume the current date.
+    Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format
+    If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
+    If there is no explicit event_description, provide a short description of what the event is.
+    
+    Return the data in the following JSON format:
+    {{
+      "event_summary": "...",
+      "event_description": "...",
+      "date": "YYYY-MM-DD",
+      "start_time": "HH:MM",
+      "end_time": "HH:MM"
+    }}
+    current date: {current_datetime}
+    User Text: {user_text}
+    """
     current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    template = f"""
-        Вы — полезный ассистент, который извлекает детали события из введенного пользователем текста.
-        Текущая дата и время: {current_datetime}.
 
-        Учитывая следующий текст, извлеките краткое описание события, полное описание события, дату, время начала и время окончания.
+    prompt_template = ChatPromptTemplate.from_messages(
+        [("system", system_template), ("user", "{user_text}")]
+    )
 
-        Дата может быть указана в свободной форме (например, "завтра", "послезавтра", "в среду").
-        Если дата не указана, рассчитайте ее, учитывая текущую дату и время.
-        Если время не указано, верните 'NONE'.
-        Если пользователь предоставляет продолжительность, рассчитайте время окончания.
-        Если нет явного описания события, предоставьте краткое описание того, что это за событие.
+    prompt = prompt_template.invoke({"user_text": user_text, "current_datetime": current_datetime})
 
-        Дата должна быть представлена в формате "YYYY-MM-DD", если она определена.
+    response = llm.invoke(prompt)
+    response_content = response.content
 
-        ВЫВОДИТЕ ТОЛЬКО JSON БЕЗ ЛЮБОГО ДОПОЛНИТЕЛЬНОГО ТЕКСТА И ФОРМАТИРОВАНИЯ, ТАКОГО КАК MARKDOWN
-
-        Верните данные в следующем формате JSON:
-        {{
-          "event_summary": "...",
-          "event_description": "...",
-          "date": "YYYY-MM-DD",
-          "start_time": "HH:MM",
-          "end_time": "HH:MM"
-        }}
-        Текст пользователя: {{user_text}}
-        """
-
-
-    prompt = PromptTemplate(template=template, input_variables=["user_text"])
-
-    # 4. Запуск LLM Chain
-    llm_response = giga.invoke(prompt.format(user_text=user_text))
-
-    # 5. Разбор ответа LLM
     try:
-        pprint(llm_response.content)
-        response_content = llm_response.content
         event_data = json.loads(response_content)
-        logger.info(f"LLM response: {event_data}")
         event_details = EventDetails(**event_data)
         print(asdict(event_details))  # Вывод в виде словаря
 
@@ -342,7 +328,7 @@ async def create_event_from_text(user_id, user_text):
             return "Sorry, there was an error creating the event."
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSONDecodeError: {e}, Response: {llm_response}")
+        logger.error(f"JSONDecodeError: {e}, Response: {response}")
         return "Sorry, I couldn't understand the details. Please rephrase your request."
     except ValueError as e:
         logger.error(f"ValueError: {e}")
@@ -385,7 +371,7 @@ async def choose_calendar(event_summary, event_description, available_calendars)
     calendar_list_str = "\n".join(calendar_names)
 
     # 3. Создание LLM Chain
-    llm_chain = LLMChain(prompt=prompt, llm=giga)
+    llm_chain = LLMChain(prompt=prompt, llm=llm)
 
     # 4. Запуск LLM Chain
     chosen_calendar_name = llm_chain.run({"event_summary": event_summary, "event_description": event_description, "calendar_list": calendar_list_str})
