@@ -260,9 +260,8 @@ async def create_event_from_text(user_id, user_text):
         If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
         If there is no explicit event_description, provide a short description of what the event is.
 
-        **The event date must not be in the past.  If you are unsure about the date, double-check against the 'current date' and choose a future date.**
-        Ты должен обязательно учитывать текущую дату, получи ее по запросу в интернете, если не можешь ее распознать.
-        Сформированная тобой date ни в коем случае не должна быть меньше чем current_datetime
+        The event date must not be in the past.  If you are unsure about the date, double-check against the 'current date' and choose a future date
+        Обязательно проверь, чтобы "date" была больше, чем {current date}
         Return the data in the following JSON format:
         {{
           "event_summary": "...",
@@ -327,6 +326,8 @@ async def create_event_from_text(user_id, user_text):
         event_details.calendar_id = calendar_id
         calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
         event_details.calendar_name = calendar_name
+        event_details.start_time = start_time
+        event_details.end_time = end_time
         return event_details
         # success = await create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id)
         #
