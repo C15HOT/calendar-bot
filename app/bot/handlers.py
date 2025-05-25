@@ -255,16 +255,23 @@ async def create_event_from_text(user_id, user_text):
     # llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.7)
 
     # 2. Создание prompt template
-    template = """
-        You are a helpful assistant that extracts event details from user input.
-        Given the following text, extract the event summary, event_description, date, start time, and end time.
+    template = f"""
+        Вы — полезный ассистент, который извлекает детали события из введенного пользователем текста.
+        Текущая дата и время: {{current_datetime}}.
 
-        If the date isn't given, assume the current date.
-        Try to understand what date is indicated in the user's message relative to the current date, the date can be described as the day of the week, or as an indication of tomorrow, the day after tomorrow and similar words. You need to convert this to the correct date format
-        If the time isn't given, return 'NONE'. You *MUST* have a start time. If the user provides a duration, calculate the end time.
-        If there is no explicit event_description, provide a short description of what the event is.
+        Учитывая следующий текст, извлеките краткое описание события, полное описание события, дату, время начала и время окончания.
 
-        Return the data in the following JSON format:
+        Дата может быть указана в свободной форме (например, "завтра", "послезавтра", "в среду").
+        Если дата не указана, рассчитайте ее, учитывая текущую дату и время.
+        Если время не указано, верните 'NONE'.
+        Если пользователь предоставляет продолжительность, рассчитайте время окончания.
+        Если нет явного описания события, предоставьте краткое описание того, что это за событие.
+
+        Дата должна быть представлена в формате "YYYY-MM-DD", если она определена.
+
+        **ВЫВОДИТЕ ТОЛЬКО JSON БЕЗ ЛЮБОГО ДОПОЛНИТЕЛЬНОГО ТЕКСТА И ФОРМАТИРОВАНИЯ, ТАКОГО КАК MARKDOWN.**
+
+        Верните данные в следующем формате JSON:
         {{
           "event_summary": "...",
           "event_description": "...",
@@ -272,8 +279,7 @@ async def create_event_from_text(user_id, user_text):
           "start_time": "HH:MM",
           "end_time": "HH:MM"
         }}
-        current date: {current_datetime}
-        User Text: {user_text}
+        Текст пользователя: {{user_text}}
         """
 
     current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
