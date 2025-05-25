@@ -261,7 +261,8 @@ async def create_event_from_text(user_id, user_text):
         If there is no explicit event_description, provide a short description of what the event is.
 
         **The event date must not be in the past.  If you are unsure about the date, double-check against the 'current date' and choose a future date.**
-
+        Ты должен обязательно учитывать текущую дату, получи ее по запросу в интернете, если не можешь ее распознать.
+        Сформированная тобой date ни в коем случае не должна быть меньше чем current_datetime
         Return the data in the following JSON format:
         {{
           "event_summary": "...",
