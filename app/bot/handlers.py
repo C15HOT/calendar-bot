@@ -315,7 +315,7 @@ async def create_event_from_text(user_id, user_text):
         available_calendars = await get_calendar_list(service)
 
         # 7. Выбор подходящего календаря
-        calendar_id = await choose_calendar(user_id, event_summary, event_description, available_calendars)
+        calendar_id = await choose_calendar(event_summary, event_description, available_calendars)
 
         # 8. Создание события в выбранном календаре
         success = await create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id)
