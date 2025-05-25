@@ -3,6 +3,7 @@ import os
 import logging
 import datetime
 from pprint import pprint
+from typing import Optional
 
 from aiogram import Bot
 import pytz
@@ -211,8 +212,8 @@ class EventDetails:
     date: str
     start_time: str
     end_time: str
-    calendar_id: str
-    calendar_name: str
+    calendar_id: Optional[str] = None
+    calendar_name: Optional[str] = None
 
 # Функция для создания события в Google Calendar
 async def create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id=DEFAULT_CALENDAR_ID):
