@@ -229,7 +229,7 @@ async def process_event_details(message: types.Message, state: FSMContext):
         print(result)
         print(type(result))
         await state.update_data(event_data=result)
-        await state.update_data(data={'data': 'data'})
+        await state.set_data(data={'data': 'data'})
         await state.set_state(EventCreation.waiting_for_commit)
         # # Отправляем ответ пользователю
         # await message.reply(result)
