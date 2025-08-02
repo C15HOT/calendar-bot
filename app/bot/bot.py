@@ -14,26 +14,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import secrets
 import urllib.parse
 
-try:
-    from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text, create_google_calendar_event, check_token_health
-    logger.info("Все функции из handlers успешно импортированы")
-except ImportError as e:
-    logger.error(f"Ошибка импорта из handlers: {e}")
-    # Создаем заглушки для функций
-    async def get_upcoming_events(user_id, num_events=5):
-        return "Ошибка: функции handlers недоступны"
-    
-    async def get_calendar_color(calendar_name: str) -> str:
-        return "⬛️"
-    
-    async def create_event_from_text(user_id, user_text):
-        return "Ошибка: функции handlers недоступны"
-    
-    async def create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id):
-        return False
-    
-    async def check_token_health(user_id):
-        return "error", "Функции handlers недоступны"
+
 
 from .init_bot import bot, dp
 from app.settings import get_settings
