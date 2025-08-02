@@ -10,7 +10,7 @@ def get_auth_keyboard():
     """Creates an inline keyboard for re-authorization."""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="Re-authorize", callback_data="reauth") #Replace callback_data with actual re-auth command
+            InlineKeyboardButton(text="Повторная авторизация", callback_data="reauth") #Replace callback_data with actual re-auth command
         ]
     ])
     return keyboard

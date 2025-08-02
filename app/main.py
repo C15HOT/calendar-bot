@@ -68,7 +68,7 @@ async def callback_handler(request: Request):
 
         user_id = int(user_id)  # Convert user_id to int
     except Exception as e:
-        logger.error(f"Error parsing state parameter: {e}")
+        logger.error(f"Ошибка при парсинге параметра state: {e}")
         raise HTTPException(status_code=400, detail="Invalid state parameter")
 
     # Find the state by user_id (which is the same as chat_id in private chats)
@@ -79,7 +79,7 @@ async def callback_handler(request: Request):
     flow = data.get('auth_flow')
 
     if stored_state != auth_state:
-        logger.error(f"State mismatch for user {user_id}: stored={stored_state}, received={auth_state}")
+        logger.error(f"Несоответствие состояния для пользователя {user_id}: сохраненное={stored_state}, полученное={auth_state}")
         raise HTTPException(status_code=400, detail="State mismatch!")
 
     try:
@@ -88,22 +88,22 @@ async def callback_handler(request: Request):
         
         # Проверяем, что получили refresh токен
         if not credentials.refresh_token:
-            logger.warning(f"No refresh token received for user {user_id}")
+            logger.warning(f"Refresh токен не получен для пользователя {user_id}")
             await bot.send_message(chat_id=user_id,
-                                   text="⚠️ Warning: No refresh token received. This may cause authentication issues later.")
+                                   text="⚠️ Предупреждение: Refresh токен не получен. Это может вызвать проблемы с авторизацией позже.")
         
         await save_credentials(user_id, credentials)
 
         await bot.send_message(chat_id=user_id,
-                               text="✅ Authorization successful! You can now use /events to see your upcoming events.")
+                               text="✅ Авторизация успешна! Теперь вы можете использовать /events для просмотра предстоящих событий.")
 
         await fsm_context.clear()  # Clear the state
-        return HTMLResponse(content="Authorization successful! Please return to the Telegram bot.", status_code=200)
+        return HTMLResponse(content="Авторизация успешна! Пожалуйста, вернитесь к Telegram боту.", status_code=200)
 
     except Exception as e:
-        logger.error(f"Authentication failed for user {user_id}: {e}")
+        logger.error(f"Ошибка аутентификации для пользователя {user_id}: {e}")
         await bot.send_message(chat_id=user_id,
-                               text=f"❌ Authentication failed: {e}")
+                               text=f"❌ Ошибка авторизации: {e}")
         raise HTTPException(status_code=500, detail=f"Authorization failed: {e}")
 
 

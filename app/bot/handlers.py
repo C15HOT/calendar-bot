@@ -58,35 +58,30 @@ async def get_creds(user_id):
     if os.path.exists(token_path):
         try:
             creds = Credentials.from_authorized_user_file(token_path, settings.scopes)
-            logger.info(f"Token expiry from file: {creds.expiry}")
-            logger.info(f"Current UTC time: {datetime.datetime.now(pytz.utc)}")
+            logger.info(f"Срок действия токена из файла: {creds.expiry}")
+            logger.info(f"Текущее время UTC: {datetime.datetime.now(pytz.utc)}")
             
-            # Проверяем, истек ли токен
             if creds.expired:
-                logger.info(f"Token expired for user {user_id}, attempting refresh")
+                logger.info(f"Токен истек для пользователя {user_id}, пытаемся обновить")
                 if creds.refresh_token:
                     try:
                         creds.refresh(Request())
-                        # Сохраняем обновленные учетные данные
                         with open(token_path, 'w') as f:
                             f.write(creds.to_json())
-                        logger.info(f"Token successfully refreshed for user {user_id}")
+                        logger.info(f"Токен успешно обновлен для пользователя {user_id}")
                     except Exception as e:
-                        logger.error(f"Failed to refresh token for user {user_id}: {e}")
-                        # Если не удалось обновить, удаляем файл токена
+                        logger.error(f"Не удалось обновить токен для пользователя {user_id}: {e}")
                         os.remove(token_path)
                         creds = None
                 else:
-                    logger.warning(f"No refresh token available for user {user_id}")
-                    # Удаляем файл токена, так как refresh токен отсутствует
+                    logger.warning(f"Refresh токен недоступен для пользователя {user_id}")
                     os.remove(token_path)
                     creds = None
             else:
-                logger.info(f"Token is still valid for user {user_id}")
+                logger.info(f"Токен все еще действителен для пользователя {user_id}")
                 
         except Exception as e:
-            logger.error(f"Error loading credentials from file for user {user_id}: {e}")
-            # Удаляем поврежденный файл токена
+            logger.error(f"Ошибка загрузки учетных данных из файла для пользователя {user_id}: {e}")
             if os.path.exists(token_path):
                 os.remove(token_path)
             creds = None
@@ -97,16 +92,16 @@ async def get_calendar_service(user_id):
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
     
     if not creds:
-        logger.warning(f"No valid credentials found for user {user_id}")
-        return ("Please authorize the bot to access your Google Calendar first.", get_auth_keyboard())
+        logger.warning(f"Действительные учетные данные не найдены для пользователя {user_id}")
+        return ("Пожалуйста, сначала авторизуйте бота для доступа к вашему Google Calendar.", get_auth_keyboard())
 
     # Проверяем, есть ли refresh токен
     if not creds.refresh_token:
-        logger.warning(f"No refresh token found for user {user_id}. Re-authorization required.")
+        logger.warning(f"Refresh токен не найден для пользователя {user_id}. Требуется повторная авторизация.")
         # Удаляем файл токена, так как refresh токен отсутствует
         if os.path.exists(token_path):
             os.remove(token_path)
-        return ("No refresh token found. Please re-authorize the bot.", get_auth_keyboard())
+        return ("Refresh токен не найден. Пожалуйста, повторно авторизуйте бота.", get_auth_keyboard())
 
     # Проверяем, истек ли токен и пытаемся обновить его
     if creds.expired:
@@ -115,13 +110,13 @@ async def get_calendar_service(user_id):
             # Сохраняем обновленные учетные данные
             with open(token_path, 'w') as f:
                 f.write(creds.to_json())
-            logger.info(f"Token successfully refreshed for user {user_id}")
+            logger.info(f"Токен успешно обновлен для пользователя {user_id}")
         except Exception as e:
-            logger.error(f"Failed to refresh token for user {user_id}: {e}")
+            logger.error(f"Не удалось обновить токен для пользователя {user_id}: {e}")
             # Если не удалось обновить, удаляем файл токена
             if os.path.exists(token_path):
                 os.remove(token_path)
-            return ("Failed to refresh token. Please re-authorize the bot.", get_auth_keyboard())
+            return ("Не удалось обновить токен. Пожалуйста, повторно авторизуйте бота.", get_auth_keyboard())
 
     try:
         service = build('calendar', 'v3', credentials=creds)
@@ -129,15 +124,15 @@ async def get_calendar_service(user_id):
         service.calendarList().list(maxResults=1).execute()
         return service
     except HttpError as error:
-        logger.error(f"An error occurred while building calendar service for user {user_id}: {error}")
+        logger.error(f"Произошла ошибка при создании сервиса календаря для пользователя {user_id}: {error}")
         # Если ошибка связана с аутентификацией, удаляем токен
         if error.resp.status in [401, 403]:
             if os.path.exists(token_path):
                 os.remove(token_path)
-            return ("Authentication failed. Please re-authorize the bot.", get_auth_keyboard())
+            return ("Ошибка аутентификации. Пожалуйста, повторно авторизуйте бота.", get_auth_keyboard())
         return None
     except Exception as error:
-        logger.error(f"Unexpected error while building calendar service for user {user_id}: {error}")
+        logger.error(f"Неожиданная ошибка при создании сервиса календаря для пользователя {user_id}: {error}")
         return None
 
 async def get_calendar_list(service):
@@ -149,7 +144,7 @@ async def get_calendar_list(service):
         calendars = calendar_list.get('items', [])
         return calendars
     except HttpError as error:
-        logger.error(f"An error occurred: {error}")
+        logger.error(f"Произошла ошибка: {error}")
         return []
 
 async def get_events_from_calendar(service, calendar_id, num_events=5):
@@ -164,7 +159,7 @@ async def get_events_from_calendar(service, calendar_id, num_events=5):
         events = events_result.get('items', [])
         return events
     except HttpError as error:
-        logger.error(f"An error occurred: {error}")
+        logger.error(f"Произошла ошибка: {error}")
         return []
 
 # Функция для сохранения учетных данных пользователя (OAuth2 flow)
@@ -174,16 +169,16 @@ async def save_credentials(user_id, credentials):
     
     # Проверяем, что у нас есть refresh токен
     if not credentials.refresh_token:
-        logger.warning(f"No refresh token received for user {user_id}. This may cause authentication issues later.")
+        logger.warning(f"Refresh токен не получен для пользователя {user_id}. Это может вызвать проблемы с авторизацией позже.")
     
     try:
         with open(token_path, 'w') as token:
             token.write(credentials.to_json())
-        logger.info(f"Credentials saved for user {user_id} to {token_path}")
-        logger.info(f"Token expiry: {credentials.expiry}")
-        logger.info(f"Has refresh token: {bool(credentials.refresh_token)}")
+        logger.info(f"Учетные данные сохранены для пользователя {user_id} в {token_path}")
+        logger.info(f"Срок действия токена: {credentials.expiry}")
+        logger.info(f"Есть refresh токен: {bool(credentials.refresh_token)}")
     except Exception as e:
-        logger.error(f"Failed to save credentials for user {user_id}: {e}")
+        logger.error(f"Не удалось сохранить учетные данные для пользователя {user_id}: {e}")
         raise
 
 async def get_upcoming_events(user_id, num_events=5):
@@ -191,29 +186,33 @@ async def get_upcoming_events(user_id, num_events=5):
 
     if isinstance(service, tuple): #If response is tuple
         return service
+    
+    all_events = []
+    
     try:
         calendars = await get_calendar_list(service)
+        
+        if not calendars:
+            return "Календари не найдены или не удалось получить список календарей."
+
+        for calendar in calendars:
+            calendar_id = calendar['id']
+            calendar_name = calendar['summary']  # Имя календаря
+            events = await get_events_from_calendar(service, calendar_id, num_events)
+
+            for event in events:
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                if start:
+                    start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+                    if start_datetime.tzinfo is None:
+                        local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(LOCAL_TIMEZONE)
+                    else:
+                        local_start_time = start_datetime.astimezone(LOCAL_TIMEZONE)
+                    all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
+                    
     except Exception as e:
-        logger.error(f"An error occurred while fetching calendar list: {e}")
-        return "An error occurred while fetching the calendar list. Please try again later.", get_auth_keyboard()
-
-    if not calendars:
-        return "No calendars found or could not retrieve the calendar list."
-
-    all_events = []
-    for calendar in calendars:
-        calendar_id = calendar['id']
-        calendar_name = calendar['summary']  # Имя календаря
-        events = await get_events_from_calendar(service, calendar_id, num_events)
-
-        for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            start_datetime = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
-            if start_datetime.tzinfo is None:
-                local_start_time = start_datetime.replace(tzinfo=pytz.utc).astimezone(LOCAL_TIMEZONE)
-            else:
-                local_start_time = start_datetime.astimezone(LOCAL_TIMEZONE)
-            all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
+        logger.error(f"Произошла ошибка при получении списка календарей: {e}")
+        return []
 
     return all_events
 
@@ -223,11 +222,21 @@ async def send_event_reminders(bot: Bot):
     """
     # Get the list of user IDs from the credentials directory
     user_ids = await get_all_user_ids()
+    
+    if not user_ids:
+        logger.info("Нет авторизованных пользователей для отправки напоминаний")
+        return
 
     now = datetime.datetime.now(LOCAL_TIMEZONE)# Замените на ваш часовой пояс
 
     for user_id in user_ids:
         upcoming_events = await get_upcoming_events(user_id, num_events=5)
+        
+        # Проверяем, что upcoming_events является списком, а не строкой ошибки или кортежем
+        if isinstance(upcoming_events, (str, tuple)):
+            logger.warning(f"Ошибка получения событий для пользователя {user_id}: {upcoming_events}")
+            continue
+            
         for calendar_name, event_summary, event_start_time_str in upcoming_events:
             color = get_calendar_color(calendar_name)
 
@@ -235,31 +244,37 @@ async def send_event_reminders(bot: Bot):
             event_start_time = LOCAL_TIMEZONE.localize(event_start_time)
             time_difference = event_start_time - now
             if datetime.timedelta(minutes=15) <= time_difference <= datetime.timedelta(
-                    hours=2):  # Check if event is in 15-30 minutes
+                    hours=2):  # Проверяем, если событие через 15-30 минут
                 total_minutes = int(time_difference.total_seconds() / 60)
 
                 if total_minutes < 60:
-                    time_string = f"{total_minutes} minutes"
+                    time_string = f"{total_minutes} минут"
                 else:
                     hours = total_minutes // 60
                     minutes = total_minutes % 60
-                    time_string = f"{hours} hours {minutes} minutes"
+                    time_string = f"{hours} часов {minutes} минут"
                 await bot.send_message(chat_id=user_id,
-                                       text=f"<b>Reminder: </b> {color} {event_summary} will start in {time_string}", parse_mode="HTML", reply_markup=get_postpone_keyboard(event_id=1)) #TODO
-            logger.info(f"Reminder sent to user {user_id} for event {event_summary}")
+                                       text=f"<b>Напоминание: </b> {color} {event_summary} начнется через {time_string}", parse_mode="HTML", reply_markup=get_postpone_keyboard(event_id=1)) #TODO
+                logger.info(f"Напоминание отправлено пользователю {user_id} для события {event_summary}")
 
 async def get_all_user_ids():
     """
     Gets all user IDs by listing files in the credentials directory.
     """
     user_ids = []
+    
+    # Проверяем, существует ли директория
+    if not os.path.exists(USER_CREDENTIALS_DIR):
+        logger.warning(f"Директория учетных данных не существует: {USER_CREDENTIALS_DIR}")
+        return user_ids
+        
     for filename in os.listdir(USER_CREDENTIALS_DIR):
         if filename.startswith('token_') and filename.endswith('.json'):
             try:
                 user_id = int(filename.split('_')[1].split('.')[0])
                 user_ids.append(user_id)
             except ValueError:
-                logger.warning(f"Invalid filename in credentials directory: {filename}")
+                logger.warning(f"Некорректное имя файла в директории учетных данных: {filename}")
     return user_ids
 
 @dataclass
@@ -279,7 +294,7 @@ async def create_google_calendar_event(user_id, event_summary, event_description
     """
     creds = await get_creds(user_id)
     if creds is None:
-      logger.error("Failed to retrieve credentials for user.")
+      logger.error("Не удалось получить учетные данные для пользователя.")
       return False  # Или выбросить исключение
 
     try:
@@ -299,10 +314,10 @@ async def create_google_calendar_event(user_id, event_summary, event_description
         }
 
         event = service.events().insert(calendarId=calendar_id, body=event).execute()
-        logger.info(f'Event created in calendar {calendar_id}: {event.get("htmlLink")}')
+        logger.info(f'Событие создано в календаре {calendar_id}: {event.get("htmlLink")}')
         return True
     except HttpError as error:
-        logger.error(f"An error occurred while creating the event: {error}")
+        logger.error(f"Произошла ошибка при создании события: {error}")
         return False
 
 
@@ -338,12 +353,38 @@ async def create_event_from_text(user_id, user_text):
 
     prompt = prompt_template.invoke({"user_text": user_text, "current_datetime": current_datetime})
 
-    response = llm.invoke(prompt)
-    response_content = response.content
+    try:
+        response = llm.invoke(prompt)
+        response_content = response.content
+    except Exception as e:
+        logger.error(f"Ошибка при вызове LLM: {e}")
+        return "Извините, произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте снова."
 
     try:
         event_data = json.loads(response_content)
-        event_details = EventDetails(**event_data)
+        
+        # Проверяем, что все необходимые поля присутствуют
+        required_fields = ['event_summary', 'event_description', 'date', 'start_time', 'end_time']
+        for field in required_fields:
+            if field not in event_data:
+                logger.error(f"Отсутствует обязательное поле в ответе LLM: {field}")
+                return "Извините, произошла ошибка при обработке деталей события. Пожалуйста, попробуйте снова."
+        
+        # Проверяем, что все поля являются строками
+        for field in required_fields:
+            if not isinstance(event_data[field], str):
+                logger.error(f"Поле {field} не является строкой: {type(event_data[field])}")
+                return "Извините, произошла ошибка при обработке деталей события. Пожалуйста, попробуйте снова."
+        
+        try:
+            event_details = EventDetails(**event_data)
+        except TypeError as e:
+            logger.error(f"Ошибка при создании EventDetails: {e}")
+            return "Извините, произошла ошибка при обработке деталей события. Пожалуйста, попробуйте снова."
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка при создании EventDetails: {e}")
+            return "Извините, произошла ошибка при обработке деталей события. Пожалуйста, попробуйте снова."
+        
         print(asdict(event_details))  # Вывод в виде словаря
 
         event_summary = event_details.event_summary
@@ -352,39 +393,65 @@ async def create_event_from_text(user_id, user_text):
         start_time_str = event_details.start_time
         end_time_str = event_details.end_time
 
+        # Проверяем, что название события не пустое
+        if not event_summary or event_summary.strip() == "":
+            return "Извините, не удалось определить название события. Пожалуйста, укажите более подробную информацию."
+
+        # Проверяем, что описание события не пустое
+        if not event_description or event_description.strip() == "":
+            event_description = f"Событие: {event_summary}"
+
         # Проверка, что время указано
         if start_time_str == "NONE" or not start_time_str:
-            return "Sorry, I need a specific time to schedule the event."
+            return "Извините, мне нужно конкретное время для планирования события."
 
         try:
             date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            logger.warning(f"Некорректный формат даты: {date_str}, используем завтрашний день")
+            # Если не удалось распарсить дату, используем завтрашний день
+            tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
+            date = tomorrow.date()
         except Exception as exc:
-            date = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+            logger.warning(f"Ошибка при парсинге даты: {exc}, используем завтрашний день")
+            # Если не удалось распарсить дату, используем завтрашний день
+            tomorrow = datetime.datetime.now() + datetime.timedelta(days=1)
+            date = tomorrow.date()
 
         start_time = datetime.datetime.combine(date, datetime.datetime.strptime(start_time_str, "%H:%M").time())
         # Если не указано время окончания - прибавляем час
         if end_time_str == "NONE" or not end_time_str:
             end_time = start_time + datetime.timedelta(hours=1)
         else:
-            end_time = datetime.datetime.combine(date, datetime.datetime.strptime(end_time_str, "%H:%M").time())
+            try:
+                end_time = datetime.datetime.combine(date, datetime.datetime.strptime(end_time_str, "%H:%M").time())
+            except ValueError:
+                logger.warning(f"Некорректное время окончания: {end_time_str}, используем время начала + 1 час")
+                end_time = start_time + datetime.timedelta(hours=1)
 
         # 6. Получение списка календарей
         creds = await get_creds(user_id)
         if creds is None:
-            return "Sorry, could not retrieve credentials."
+            return "Извините, не удалось получить учетные данные."
 
         service = build('calendar', 'v3', credentials=creds)
         available_calendars = await get_calendar_list(service)
-
-        # 7. Выбор подходящего календаря
-        calendar_id = await choose_calendar(event_summary, event_description, available_calendars)
-        print('\n')
-        print(calendar_id)
-        print('\n')
-        calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
-        if not calendar_id:
+        
+        if not available_calendars:
+            logger.warning(f"Не найдено доступных календарей для пользователя {user_id}")
+            # Используем календарь по умолчанию
             calendar_id = DEFAULT_CALENDAR_ID
             calendar_name = 'Стандартный'
+        else:
+            # 7. Выбор подходящего календаря
+            calendar_id = await choose_calendar(event_summary, event_description, available_calendars)
+            print('\n')
+            print(calendar_id)
+            print('\n')
+            calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
+            if not calendar_id:
+                calendar_id = DEFAULT_CALENDAR_ID
+                calendar_name = 'Стандартный'
         # 8. Создание события в выбранном календаре
         print('\n')
         print(calendar_id)
@@ -406,14 +473,14 @@ async def create_event_from_text(user_id, user_text):
         #     return "Sorry, there was an error creating the event."
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSONDecodeError: {e}, Response: {response}")
-        return "Sorry, I couldn't understand the details. Please rephrase your request."
+        logger.error(f"Ошибка декодирования JSON: {e}, Ответ: {response}")
+        return "Извините, я не смог понять детали. Пожалуйста, переформулируйте ваш запрос."
     except ValueError as e:
-        logger.error(f"ValueError: {e}")
-        return "Sorry, I couldn't parse the date or time. Please check the format."
+        logger.error(f"Ошибка значения: {e}")
+        return "Извините, я не смог разобрать дату или время. Пожалуйста, проверьте формат."
     except Exception as e:
-        logger.exception("An unexpected error occurred")
-        return "Sorry, there was an unexpected error. Please try again."
+        logger.exception("Произошла неожиданная ошибка")
+        return "Извините, произошла неожиданная ошибка. Пожалуйста, попробуйте снова."
 
 
 # Функция для выбора календаря на основе названия и описания события
@@ -452,10 +519,14 @@ async def choose_calendar(event_summary, event_description, available_calendars)
     llm_chain = LLMChain(prompt=prompt, llm=llm)
 
     # 4. Запуск LLM Chain
-    chosen_calendar_name = llm_chain.run({"event_summary": event_summary, "event_description": event_description, "calendar_list": calendar_list_str})
-    chosen_calendar_name = chosen_calendar_name.strip()  #Удалите лишние пробелы
+    try:
+        chosen_calendar_name = llm_chain.run({"event_summary": event_summary, "event_description": event_description, "calendar_list": calendar_list_str})
+        chosen_calendar_name = chosen_calendar_name.strip()  #Удалите лишние пробелы
+    except Exception as e:
+        logger.error(f"Ошибка при выборе календаря: {e}")
+        return DEFAULT_CALENDAR_ID
 
-    logger.info(f"Chosen calendar name: {chosen_calendar_name}")
+    logger.info(f"Выбранное имя календаря: {chosen_calendar_name}")
 
     # 5. Поиск calendar_id по имени
     pprint(chosen_calendar_name)
@@ -466,7 +537,7 @@ async def choose_calendar(event_summary, event_description, available_calendars)
         if calendar['summary'] == chosen_calendar_name:
             return calendar['id']
 
-    logger.warning(f"Calendar '{chosen_calendar_name}' not found. Using default calendar.")
+    logger.warning(f"Календарь '{chosen_calendar_name}' не найден. Используется календарь по умолчанию.")
     return DEFAULT_CALENDAR_ID  # Если не нашли, возвращаем стандартный
 
 async def check_token_health(user_id):
@@ -475,10 +546,10 @@ async def check_token_health(user_id):
     """
     creds = await get_creds(user_id)
     if not creds:
-        return "no_token", "No token found"
+        return "no_token", "Токен не найден"
     
     if not creds.refresh_token:
-        return "no_refresh", "No refresh token available"
+        return "no_refresh", "Refresh токен недоступен"
     
     if creds.expired:
         try:
@@ -487,23 +558,27 @@ async def check_token_health(user_id):
             token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
             with open(token_path, 'w') as f:
                 f.write(creds.to_json())
-            return "refreshed", "Token successfully refreshed"
+            return "refreshed", "Токен успешно обновлен"
         except Exception as e:
-            logger.error(f"Failed to refresh token for user {user_id}: {e}")
-            return "refresh_failed", f"Failed to refresh token: {e}"
+            logger.error(f"Не удалось обновить токен для пользователя {user_id}: {e}")
+            return "refresh_failed", f"Не удалось обновить токен: {e}"
     
     # Проверяем, сколько времени осталось до истечения токена
     time_until_expiry = creds.expiry - datetime.datetime.now(pytz.utc)
     if time_until_expiry.total_seconds() < 3600:  # Меньше часа
-        return "expiring_soon", f"Token expires in {int(time_until_expiry.total_seconds() / 60)} minutes"
+        return "expiring_soon", f"Токен истекает через {int(time_until_expiry.total_seconds() / 60)} минут"
     
-    return "healthy", "Token is healthy"
+    return "healthy", "Токен в порядке"
 
 async def monitor_tokens(bot: Bot):
     """
     Мониторит состояние токенов всех пользователей и уведомляет о проблемах.
     """
     user_ids = await get_all_user_ids()
+    
+    if not user_ids:
+        logger.info("Нет авторизованных пользователей для мониторинга токенов")
+        return
     
     for user_id in user_ids:
         status, message = await check_token_health(user_id)
@@ -512,22 +587,22 @@ async def monitor_tokens(bot: Bot):
             try:
                 await bot.send_message(
                     chat_id=user_id,
-                    text=f"⚠️ Authentication issue detected: {message}\n\n"
-                         f"Please use /auth to re-authorize the bot.",
+                    text=f"⚠️ Обнаружена проблема с авторизацией: {message}\n\n"
+                         f"Пожалуйста, используйте /auth для повторной авторизации бота.",
                     reply_markup=get_auth_keyboard()
                 )
-                logger.warning(f"Token health issue for user {user_id}: {message}")
+                logger.warning(f"Проблема со здоровьем токена для пользователя {user_id}: {message}")
             except Exception as e:
-                logger.error(f"Failed to send token health notification to user {user_id}: {e}")
+                logger.error(f"Не удалось отправить уведомление о проблеме с токеном пользователю {user_id}: {e}")
         
         elif status == "expiring_soon":
             try:
                 await bot.send_message(
                     chat_id=user_id,
-                    text=f"ℹ️ Your authentication token will expire soon: {message}\n\n"
-                         f"The bot will automatically refresh it, but if you experience issues, "
-                         f"please use /auth to re-authorize."
+                    text=f"ℹ️ Ваш токен авторизации скоро истечет: {message}\n\n"
+                         f"Бот автоматически обновит его, но если у вас возникнут проблемы, "
+                         f"пожалуйста, используйте /auth для повторной авторизации."
                 )
-                logger.info(f"Token expiring soon for user {user_id}: {message}")
+                logger.info(f"Токен скоро истечет для пользователя {user_id}: {message}")
             except Exception as e:
-                logger.error(f"Failed to send token expiry notification to user {user_id}: {e}")
+                logger.error(f"Не удалось отправить уведомление об истечении токена пользователю {user_id}: {e}")

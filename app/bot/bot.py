@@ -48,12 +48,12 @@ class EventCreation(StatesGroup):
 async def start_handler(message: Message):
     keyboard = get_main_keyboard()
     await message.answer(
-        "Hello! I'm your Google Calendar assistant.\n\n"
-        "Commands:\n"
-        "• /auth - Authorize the bot\n"
-        "• /events - Show upcoming events\n"
-        "• /token_status - Check authentication status\n\n"
-        "Use /auth to authorize me and /events to see your upcoming events.", 
+        "Привет! Я ваш помощник для Google Calendar.\n\n"
+        "Команды:\n"
+        "• /auth - Авторизовать бота\n"
+        "• /events - Показать предстоящие события\n"
+        "• /token_status - Проверить статус авторизации\n\n"
+        "Используйте /auth для авторизации и /events для просмотра предстоящих событий.", 
         reply_markup=keyboard)
 
 
@@ -67,9 +67,9 @@ async def auth_handler(message: Message, state: FSMContext):
     if os.path.exists(token_path):
         try:
             os.remove(token_path)
-            logger.info(f"Removed old token for user {user_id}")
+            logger.info(f"Удален старый токен для пользователя {user_id}")
         except Exception as e:
-            logger.warning(f"Failed to remove old token for user {user_id}: {e}")
+            logger.warning(f"Не удалось удалить старый токен для пользователя {user_id}: {e}")
     
     flow = InstalledAppFlow.from_client_secrets_file(
         CREDENTIALS_FILE, settings.scopes, redirect_uri=f"{settings.server_address}/callback"
@@ -92,14 +92,14 @@ async def auth_handler(message: Message, state: FSMContext):
     # Create an inline keyboard with a link to the authorization URL
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
-        text="Authorize Google Calendar",
+        text="Авторизовать Google Calendar",
         url=auth_url
     ))
 
     await message.answer(
-        "Please authorize access to your Google Calendar by visiting this URL:\n\n"
-        "⚠️ Important: Make sure to check 'Keep me signed in' if prompted, "
-        "and grant all requested permissions to ensure continuous access.",
+        "Пожалуйста, авторизуйте доступ к вашему Google Calendar, перейдя по этой ссылке:\n\n"
+        "⚠️ Важно: Убедитесь, что вы отметили 'Оставаться в системе' если будет предложено, "
+        "и предоставьте все запрашиваемые разрешения для обеспечения непрерывного доступа.",
         reply_markup=builder.as_markup()
     )
 
@@ -117,7 +117,7 @@ async def cancel_postpone(callback_query: types.CallbackQuery):
     """Handles the callback query to cancel postponing."""
     event_id = int(callback_query.data.split(":")[1])
     await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
-    await callback_query.answer("Postponing cancelled.")
+    await callback_query.answer("Отложено отменено.")
 
 @dp.callback_query(F.data.startswith("postpone:"))
 async def postpone_reminder(callback_query: types.CallbackQuery):
@@ -143,9 +143,9 @@ async def postpone_reminder(callback_query: types.CallbackQuery):
     #     args=[bot, user_id, "заменить event_summary"]  # pass replace event_summary here
     # )
     #
-    # await bot.answer_callback_query(callback_query.id, text=f"Reminder postponed by {postpone_minutes} minutes!")
+    # await bot.answer_callback_query(callback_query.id, text=f"Напоминание отложено на {postpone_minutes} минут!")
     # await callback_query.message.edit_text(
-    #     text=f"Reminder postponed by {postpone_minutes} minutes!",
+    #     text=f"Напоминание отложено на {postpone_minutes} минут!",
     # )
 
 @dp.callback_query(F.data == "reauth")
@@ -158,9 +158,9 @@ async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMCon
     if os.path.exists(token_path):
         try:
             os.remove(token_path)
-            logger.info(f"Removed old token for user {user_id} during re-auth")
+            logger.info(f"Удален старый токен для пользователя {user_id} при повторной авторизации")
         except Exception as e:
-            logger.warning(f"Failed to remove old token for user {user_id}: {e}")
+            logger.warning(f"Не удалось удалить старый токен для пользователя {user_id}: {e}")
     
     flow = InstalledAppFlow.from_client_secrets_file(
         CREDENTIALS_FILE, settings.scopes, redirect_uri=f"{settings.server_address}/callback"
@@ -183,14 +183,14 @@ async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMCon
     # Create an inline keyboard with a link to the authorization URL
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
-        text="Authorize Google Calendar",
+        text="Авторизовать Google Calendar",
         url=auth_url
     ))
 
     await callback_query.message.answer(
-        "Please re-authorize access to your Google Calendar by visiting this URL:\n\n"
-        "⚠️ Important: Make sure to check 'Keep me signed in' if prompted, "
-        "and grant all requested permissions to ensure continuous access.",
+        "Пожалуйста, повторно авторизуйте доступ к вашему Google Calendar, перейдя по этой ссылке:\n\n"
+        "⚠️ Важно: Убедитесь, что вы отметили 'Оставаться в системе' если будет предложено, "
+        "и предоставьте все запрашиваемые разрешения для обеспечения непрерывного доступа.",
         reply_markup=builder.as_markup()
     )
     await callback_query.answer()
@@ -206,7 +206,7 @@ async def events_handler(message: Message):
 
 
     if not events:
-        await message.answer("No upcoming events found.")
+        await message.answer("Предстоящих событий не найдено.")
         return
 
     formatted_events = []
@@ -226,7 +226,7 @@ async def events_handler(message: Message):
 async def create_event_handler(message: types.Message, state: FSMContext): # Corrected argument type
     """Handles the message for the 'Create Event' button."""
     await message.answer( # Corrected to message.answer
-        "Please enter the event details:",
+        "Пожалуйста, введите детали события:",
     )
     await state.set_state(EventCreation.waiting_for_text)
     # No callback_query.answer needed
@@ -265,7 +265,7 @@ async def process_event_details(message: types.Message, state: FSMContext):
 
     except Exception as e:
         logger.exception("An error occurred while processing event details")
-        await message.reply("Sorry, an error occurred. Please try again.")
+        await message.reply("Извините, произошла ошибка. Пожалуйста, попробуйте снова.")
 
     finally:
         # Сбрасываем состояние
@@ -279,7 +279,7 @@ async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMC
     event = events_memory.get(user_id)
     print(event)
     if event is None:
-        await callback_query.answer("Error: Event data not found.")
+        await callback_query.answer("Ошибка: Данные события не найдены.")
         await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
         await state.clear()
         return
@@ -296,16 +296,16 @@ async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMC
     )
     await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
     if success:
-        await callback_query.message.answer(f"Event created in {event.calendar_name} calendar.")
+        await callback_query.message.answer(f"Событие создано в календаре {event.calendar_name}.")
     else:
-        await callback_query.answer("Sorry, there was an error creating the event.")
+        await callback_query.answer("Извините, произошла ошибка при создании события.")
     await state.clear()
 
 @dp.callback_query(F.data == "reject_event")
 async def reject_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Rejects the event and resets the state."""
     await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
-    await callback_query.message.answer("Event rejected.")
+    await callback_query.message.answer("Событие отклонено.")
 
     await state.clear()
 
@@ -319,14 +319,14 @@ async def reject_event_handler(callback_query: types.CallbackQuery, state: FSMCo
 
 async def start_bot():
     try:
-        await bot.send_message(settings.admin_id, f'Start bot')
+        await bot.send_message(settings.admin_id, f'Бот запущен')
     except:
         pass
 
 
 async def stop_bot():
     try:
-        await bot.send_message(settings.admin_id, f'Stop bot')
+        await bot.send_message(settings.admin_id, f'Бот остановлен')
     except:
         pass
 
@@ -349,8 +349,8 @@ async def token_status_handler(message: Message):
     emoji = status_emoji.get(status, "❓")
     
     await message.answer(
-        f"{emoji} Token Status: {status}\n\n"
-        f"Details: {message_text}\n\n"
-        f"If you're experiencing issues, use /auth to re-authorize."
+        f"{emoji} Статус токена: {status}\n\n"
+        f"Детали: {message_text}\n\n"
+        f"Если у вас возникают проблемы, используйте /auth для повторной авторизации."
     )
 
