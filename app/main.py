@@ -5,14 +5,16 @@ from starlette.responses import HTMLResponse
 from uvicorn import run
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
 
-from app.bot.handlers import send_event_reminders, save_credentials
+from app.bot.handlers import send_event_reminders, save_credentials, monitor_tokens
 from app.bot.init_bot import dp, bot
 from app.bot.bot import start_bot, stop_bot, user_router
 import urllib.parse
 from app.settings import get_settings
 
 scheduler = AsyncIOScheduler()
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -27,6 +29,7 @@ async def lifespan(app: FastAPI):
     )
     await start_bot()
     scheduler.add_job(send_event_reminders, "interval", hours=1, args=(bot,))
+    scheduler.add_job(monitor_tokens, "interval", hours=6, args=(bot,))  # Проверяем токены каждые 6 часов
     scheduler.start()
     yield
     await stop_bot()
@@ -56,12 +59,17 @@ async def callback_handler(request: Request):
 
     if not code or not encoded_composite_state:
         raise HTTPException(status_code=400, detail="Missing required parameters")
-    composite_state = urllib.parse.unquote(encoded_composite_state)
-    auth_state, user_id = composite_state.split("|")
-    if not user_id:
-        raise HTTPException(status_code=400, detail="Missing user_id in state")
+    
+    try:
+        composite_state = urllib.parse.unquote(encoded_composite_state)
+        auth_state, user_id = composite_state.split("|")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="Missing user_id in state")
 
-    user_id = int(user_id)  # Convert user_id to int
+        user_id = int(user_id)  # Convert user_id to int
+    except Exception as e:
+        logger.error(f"Error parsing state parameter: {e}")
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
 
     # Find the state by user_id (which is the same as chat_id in private chats)
     fsm_context = dp.fsm.get_context(bot, chat_id=user_id, user_id=user_id)
@@ -71,22 +79,31 @@ async def callback_handler(request: Request):
     flow = data.get('auth_flow')
 
     if stored_state != auth_state:
+        logger.error(f"State mismatch for user {user_id}: stored={stored_state}, received={auth_state}")
         raise HTTPException(status_code=400, detail="State mismatch!")
 
     try:
         flow.fetch_token(code=code)
         credentials = flow.credentials
+        
+        # Проверяем, что получили refresh токен
+        if not credentials.refresh_token:
+            logger.warning(f"No refresh token received for user {user_id}")
+            await bot.send_message(chat_id=user_id,
+                                   text="⚠️ Warning: No refresh token received. This may cause authentication issues later.")
+        
         await save_credentials(user_id, credentials)
 
         await bot.send_message(chat_id=user_id,
-                               text="Authorization successful! You can now use /events to see your upcoming events.")
+                               text="✅ Authorization successful! You can now use /events to see your upcoming events.")
 
         await fsm_context.clear()  # Clear the state
         return HTMLResponse(content="Authorization successful! Please return to the Telegram bot.", status_code=200)
 
     except Exception as e:
+        logger.error(f"Authentication failed for user {user_id}: {e}")
         await bot.send_message(chat_id=user_id,
-                               text=f"Authentication failed: {e}")
+                               text=f"❌ Authentication failed: {e}")
         raise HTTPException(status_code=500, detail=f"Authorization failed: {e}")
 
 

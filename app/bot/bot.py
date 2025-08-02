@@ -14,7 +14,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import secrets
 import urllib.parse
 
-from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text, create_google_calendar_event
+from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text, create_google_calendar_event, check_token_health
 from .init_bot import bot, dp
 from app.settings import get_settings
 from .keyboards import get_postpone_time_options_keyboard, get_main_keyboard
@@ -48,31 +48,45 @@ class EventCreation(StatesGroup):
 async def start_handler(message: Message):
     keyboard = get_main_keyboard()
     await message.answer(
-        "Hello! I'm your Google Calendar assistant. Use /auth to authorize me and /events to see your upcoming events.", reply_markup=keyboard)
+        "Hello! I'm your Google Calendar assistant.\n\n"
+        "Commands:\n"
+        "• /auth - Authorize the bot\n"
+        "• /events - Show upcoming events\n"
+        "• /token_status - Check authentication status\n\n"
+        "Use /auth to authorize me and /events to see your upcoming events.", 
+        reply_markup=keyboard)
 
 
 
 @user_router.message(F.text == '/auth')
 async def auth_handler(message: Message, state: FSMContext):
     user_id = message.from_user.id
+    
+    # Удаляем старый токен, если он существует
+    token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
+    if os.path.exists(token_path):
+        try:
+            os.remove(token_path)
+            logger.info(f"Removed old token for user {user_id}")
+        except Exception as e:
+            logger.warning(f"Failed to remove old token for user {user_id}: {e}")
+    
     flow = InstalledAppFlow.from_client_secrets_file(
         CREDENTIALS_FILE, settings.scopes, redirect_uri=f"{settings.server_address}/callback"
     )
     auth_state = secrets.token_urlsafe(16)
     composite_state = f"{auth_state}|{user_id}"
     encoded_composite_state = urllib.parse.quote(composite_state)
+    
+    # Используем prompt='consent' для гарантированного получения refresh токена
     auth_url, _ = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
         state=encoded_composite_state,
-        prompt='consent'
+        prompt='consent'  # Принудительно запрашиваем согласие для получения refresh токена
     )
-    # auth_url, auth_state = flow.authorization_url(
-    #     access_type='offline',
-    #     include_granted_scopes='true'
-    # )
 
-    await state.set_state(AuthState.waiting_for_auth_code)  # Set the state
+    await state.set_state(AuthState.waiting_for_auth_code)
     await state.update_data(auth_state=auth_state, auth_flow=flow, user_id=user_id)
 
     # Create an inline keyboard with a link to the authorization URL
@@ -83,7 +97,9 @@ async def auth_handler(message: Message, state: FSMContext):
     ))
 
     await message.answer(
-        "Please authorize access to your Google Calendar by visiting this URL:",
+        "Please authorize access to your Google Calendar by visiting this URL:\n\n"
+        "⚠️ Important: Make sure to check 'Keep me signed in' if prompted, "
+        "and grant all requested permissions to ensure continuous access.",
         reply_markup=builder.as_markup()
     )
 
@@ -136,20 +152,32 @@ async def postpone_reminder(callback_query: types.CallbackQuery):
 async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Handles the re-authorization callback."""
     user_id = callback_query.from_user.id
+    
+    # Удаляем старый токен, если он существует
+    token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
+    if os.path.exists(token_path):
+        try:
+            os.remove(token_path)
+            logger.info(f"Removed old token for user {user_id} during re-auth")
+        except Exception as e:
+            logger.warning(f"Failed to remove old token for user {user_id}: {e}")
+    
     flow = InstalledAppFlow.from_client_secrets_file(
         CREDENTIALS_FILE, settings.scopes, redirect_uri=f"{settings.server_address}/callback"
     )
     auth_state = secrets.token_urlsafe(16)
     composite_state = f"{auth_state}|{user_id}"
     encoded_composite_state = urllib.parse.quote(composite_state)
+    
+    # Используем prompt='consent' для гарантированного получения refresh токена
     auth_url, _ = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
         state=encoded_composite_state,
-        prompt='consent'
+        prompt='consent'  # Принудительно запрашиваем согласие для получения refresh токена
     )
 
-    await state.set_state(AuthState.waiting_for_auth_code)  # Set the state
+    await state.set_state(AuthState.waiting_for_auth_code)
     await state.update_data(auth_state=auth_state, auth_flow=flow, user_id=user_id)
 
     # Create an inline keyboard with a link to the authorization URL
@@ -160,7 +188,9 @@ async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMCon
     ))
 
     await callback_query.message.answer(
-        "Please authorize access to your Google Calendar by visiting this URL:",
+        "Please re-authorize access to your Google Calendar by visiting this URL:\n\n"
+        "⚠️ Important: Make sure to check 'Keep me signed in' if prompted, "
+        "and grant all requested permissions to ensure continuous access.",
         reply_markup=builder.as_markup()
     )
     await callback_query.answer()
@@ -299,4 +329,28 @@ async def stop_bot():
         await bot.send_message(settings.admin_id, f'Stop bot')
     except:
         pass
+
+
+@user_router.message(F.text == '/token_status')
+async def token_status_handler(message: Message):
+    """Handles the token status check command."""
+    user_id = message.from_user.id
+    status, message_text = await check_token_health(user_id)
+    
+    status_emoji = {
+        "healthy": "✅",
+        "expiring_soon": "⚠️",
+        "no_token": "❌",
+        "no_refresh": "❌",
+        "refresh_failed": "❌",
+        "refreshed": "🔄"
+    }
+    
+    emoji = status_emoji.get(status, "❓")
+    
+    await message.answer(
+        f"{emoji} Token Status: {status}\n\n"
+        f"Details: {message_text}\n\n"
+        f"If you're experiencing issues, use /auth to re-authorize."
+    )
 

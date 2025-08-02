@@ -60,38 +60,84 @@ async def get_creds(user_id):
             creds = Credentials.from_authorized_user_file(token_path, settings.scopes)
             logger.info(f"Token expiry from file: {creds.expiry}")
             logger.info(f"Current UTC time: {datetime.datetime.now(pytz.utc)}")
+            
+            # Проверяем, истек ли токен
+            if creds.expired:
+                logger.info(f"Token expired for user {user_id}, attempting refresh")
+                if creds.refresh_token:
+                    try:
+                        creds.refresh(Request())
+                        # Сохраняем обновленные учетные данные
+                        with open(token_path, 'w') as f:
+                            f.write(creds.to_json())
+                        logger.info(f"Token successfully refreshed for user {user_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to refresh token for user {user_id}: {e}")
+                        # Если не удалось обновить, удаляем файл токена
+                        os.remove(token_path)
+                        creds = None
+                else:
+                    logger.warning(f"No refresh token available for user {user_id}")
+                    # Удаляем файл токена, так как refresh токен отсутствует
+                    os.remove(token_path)
+                    creds = None
+            else:
+                logger.info(f"Token is still valid for user {user_id}")
+                
         except Exception as e:
             logger.error(f"Error loading credentials from file for user {user_id}: {e}")
-            creds = None  # Set creds to None if loading fails
+            # Удаляем поврежденный файл токена
+            if os.path.exists(token_path):
+                os.remove(token_path)
+            creds = None
     return creds
 
 async def get_calendar_service(user_id):
     creds = await get_creds(user_id)
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
-    # Force refresh the access token if a refresh token exists
-    if creds and creds.refresh_token:
+    
+    if not creds:
+        logger.warning(f"No valid credentials found for user {user_id}")
+        return ("Please authorize the bot to access your Google Calendar first.", get_auth_keyboard())
+
+    # Проверяем, есть ли refresh токен
+    if not creds.refresh_token:
+        logger.warning(f"No refresh token found for user {user_id}. Re-authorization required.")
+        # Удаляем файл токена, так как refresh токен отсутствует
+        if os.path.exists(token_path):
+            os.remove(token_path)
+        return ("No refresh token found. Please re-authorize the bot.", get_auth_keyboard())
+
+    # Проверяем, истек ли токен и пытаемся обновить его
+    if creds.expired:
         try:
             creds.refresh(Request())
-            # Save the refreshed credentials
+            # Сохраняем обновленные учетные данные
             with open(token_path, 'w') as f:
                 f.write(creds.to_json())
-            logger.info(f"Token forcibly refreshed for user {user_id}")
+            logger.info(f"Token successfully refreshed for user {user_id}")
         except Exception as e:
             logger.error(f"Failed to refresh token for user {user_id}: {e}")
+            # Если не удалось обновить, удаляем файл токена
+            if os.path.exists(token_path):
+                os.remove(token_path)
             return ("Failed to refresh token. Please re-authorize the bot.", get_auth_keyboard())
-    elif creds:
-        # If there's no refresh token, the token needs re-authorization
-        logger.warning(f"No refresh token found for user {user_id}. Re-authorization required.")
-        return ("No refresh token found. Please re-authorize the bot.", get_auth_keyboard())
-    else:
-        # If there's no creds
-        return ("Please authorize the bot to access your OpenAI Calendar first.", get_auth_keyboard())
 
     try:
         service = build('calendar', 'v3', credentials=creds)
+        # Проверяем, что сервис работает, делая тестовый запрос
+        service.calendarList().list(maxResults=1).execute()
         return service
     except HttpError as error:
-        logger.error(f"An error occurred: {error}")
+        logger.error(f"An error occurred while building calendar service for user {user_id}: {error}")
+        # Если ошибка связана с аутентификацией, удаляем токен
+        if error.resp.status in [401, 403]:
+            if os.path.exists(token_path):
+                os.remove(token_path)
+            return ("Authentication failed. Please re-authorize the bot.", get_auth_keyboard())
+        return None
+    except Exception as error:
+        logger.error(f"Unexpected error while building calendar service for user {user_id}: {error}")
         return None
 
 async def get_calendar_list(service):
@@ -125,9 +171,20 @@ async def get_events_from_calendar(service, calendar_id, num_events=5):
 async def save_credentials(user_id, credentials):
     os.makedirs(USER_CREDENTIALS_DIR, exist_ok=True)
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
-    with open(token_path, 'w') as token:
-        token.write(credentials.to_json())
-    logger.info(f"Credentials saved for user {user_id} to {token_path}")
+    
+    # Проверяем, что у нас есть refresh токен
+    if not credentials.refresh_token:
+        logger.warning(f"No refresh token received for user {user_id}. This may cause authentication issues later.")
+    
+    try:
+        with open(token_path, 'w') as token:
+            token.write(credentials.to_json())
+        logger.info(f"Credentials saved for user {user_id} to {token_path}")
+        logger.info(f"Token expiry: {credentials.expiry}")
+        logger.info(f"Has refresh token: {bool(credentials.refresh_token)}")
+    except Exception as e:
+        logger.error(f"Failed to save credentials for user {user_id}: {e}")
+        raise
 
 async def get_upcoming_events(user_id, num_events=5):
     service = await get_calendar_service(user_id)
@@ -411,3 +468,66 @@ async def choose_calendar(event_summary, event_description, available_calendars)
 
     logger.warning(f"Calendar '{chosen_calendar_name}' not found. Using default calendar.")
     return DEFAULT_CALENDAR_ID  # Если не нашли, возвращаем стандартный
+
+async def check_token_health(user_id):
+    """
+    Проверяет состояние токена пользователя и возвращает информацию о его здоровье.
+    """
+    creds = await get_creds(user_id)
+    if not creds:
+        return "no_token", "No token found"
+    
+    if not creds.refresh_token:
+        return "no_refresh", "No refresh token available"
+    
+    if creds.expired:
+        try:
+            creds.refresh(Request())
+            # Сохраняем обновленные учетные данные
+            token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
+            with open(token_path, 'w') as f:
+                f.write(creds.to_json())
+            return "refreshed", "Token successfully refreshed"
+        except Exception as e:
+            logger.error(f"Failed to refresh token for user {user_id}: {e}")
+            return "refresh_failed", f"Failed to refresh token: {e}"
+    
+    # Проверяем, сколько времени осталось до истечения токена
+    time_until_expiry = creds.expiry - datetime.datetime.now(pytz.utc)
+    if time_until_expiry.total_seconds() < 3600:  # Меньше часа
+        return "expiring_soon", f"Token expires in {int(time_until_expiry.total_seconds() / 60)} minutes"
+    
+    return "healthy", "Token is healthy"
+
+async def monitor_tokens(bot: Bot):
+    """
+    Мониторит состояние токенов всех пользователей и уведомляет о проблемах.
+    """
+    user_ids = await get_all_user_ids()
+    
+    for user_id in user_ids:
+        status, message = await check_token_health(user_id)
+        
+        if status in ["no_token", "no_refresh", "refresh_failed"]:
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"⚠️ Authentication issue detected: {message}\n\n"
+                         f"Please use /auth to re-authorize the bot.",
+                    reply_markup=get_auth_keyboard()
+                )
+                logger.warning(f"Token health issue for user {user_id}: {message}")
+            except Exception as e:
+                logger.error(f"Failed to send token health notification to user {user_id}: {e}")
+        
+        elif status == "expiring_soon":
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"ℹ️ Your authentication token will expire soon: {message}\n\n"
+                         f"The bot will automatically refresh it, but if you experience issues, "
+                         f"please use /auth to re-authorize."
+                )
+                logger.info(f"Token expiring soon for user {user_id}: {message}")
+            except Exception as e:
+                logger.error(f"Failed to send token expiry notification to user {user_id}: {e}")
