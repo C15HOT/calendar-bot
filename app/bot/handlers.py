@@ -5,12 +5,38 @@ import datetime
 from pprint import pprint
 from typing import Optional
 
+from app.main import logger
 from aiogram import Bot
 import pytz
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+try:
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    logger.info("Google API модули успешно импортированы")
+except ImportError as e:
+    logger.error(f"Ошибка импорта Google API модулей: {e}")
+    # Создаем заглушки
+    class MockRequest:
+        pass
+    
+    class MockCredentials:
+        def __init__(self):
+            self.expired = False
+            self.refresh_token = "mock_refresh_token"
+            self.expiry = None
+        
+        def to_json(self):
+            return '{"mock": "credentials"}'
+    
+    class MockHttpError(Exception):
+        def __init__(self, resp):
+            self.resp = resp
+    
+    Request = MockRequest
+    Credentials = MockCredentials
+    HttpError = MockHttpError
+    build = lambda service, version, credentials=None: type('MockService', (), {'calendarList': lambda: type('MockCalendarList', (), {'list': lambda: type('MockList', (), {'execute': lambda: {'items': []}})()})(), 'events': lambda: type('MockEvents', (), {'list': lambda: type('MockList', (), {'execute': lambda: {'items': []}})()})()})()
 from dataclasses import dataclass, asdict
 
 from langchain.prompts import PromptTemplate
@@ -24,16 +50,22 @@ from langchain_gigachat.chat_models import GigaChat
 
 CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.json')
 USER_CREDENTIALS_DIR = "/service/user_credentials"
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-llm = GigaChat(
-    # Для авторизации запросов используйте ключ, полученный в проекте GigaChat API
-    credentials=settings.gigachat_key,
-    verify_ssl_certs=False,
-)
+try:
+    llm = GigaChat(
+        # Для авторизации запросов используйте ключ, полученный в проекте GigaChat API
+        credentials=settings.gigachat_key,
+        verify_ssl_certs=False,
+    )
+    logger.info("LLM успешно инициализирован")
+except Exception as e:
+    logger.error(f"Ошибка инициализации LLM: {e}")
+    # Создаем заглушку для LLM
+    llm = type('MockLLM', (), {'invoke': lambda self, prompt: type('MockResponse', (), {'content': '{"event_summary": "Тестовое событие", "event_description": "Описание", "date": "2024-01-01", "start_time": "10:00", "end_time": "11:00"}'})()})()
 DEFAULT_CALENDAR_ID = 'primary'
 LOCAL_TIMEZONE = pytz.timezone('Europe/Moscow')
 

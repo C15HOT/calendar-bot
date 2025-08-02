@@ -15,26 +15,39 @@ from app.settings import get_settings
 
 scheduler = AsyncIOScheduler()
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Запуск приложения...")
     dp.include_router(user_router)
+    logger.info("Роутер подключен")
     webhook_url = settings.webhook_url
-    await bot.set_webhook(
-        url=webhook_url,
-        allowed_updates=dp.resolve_used_update_types(),
-        drop_pending_updates=True
-    )
+    logger.info(f"Настройка webhook: {webhook_url}")
+    logger.info(f"Bot token: {settings.bot_token[:10]}...")
+    logger.info(f"Server address: {settings.server_address}")
+    try:
+        await bot.set_webhook(
+            url=webhook_url,
+            allowed_updates=dp.resolve_used_update_types(),
+            drop_pending_updates=True
+        )
+        logger.info("Webhook настроен успешно")
+    except Exception as e:
+        logger.error(f"Ошибка при настройке webhook: {e}")
     await start_bot()
     scheduler.add_job(send_event_reminders, "interval", hours=1, args=(bot,))
     scheduler.add_job(monitor_tokens, "interval", hours=6, args=(bot,))  # Проверяем токены каждые 6 часов
     scheduler.start()
+    logger.info("Планировщик запущен")
     yield
+    logger.info("Остановка приложения...")
     await stop_bot()
     scheduler.shutdown()
     await bot.delete_webhook()
+    logger.info("Приложение остановлено")
 
 app = FastAPI(
     title="calendar",
@@ -49,7 +62,19 @@ app.add_middleware(CORSMiddleware,
                    allow_headers=['*'])
 @app.get('/test')
 async def test():
-    return {'test: test'}
+    logger.info("Получен запрос на /test")
+    return {'test': 'test'}
+
+@app.get("/webhook-info")
+async def webhook_info():
+    """Проверяет информацию о webhook"""
+    try:
+        webhook_info = await bot.get_webhook_info()
+        logger.info(f"Webhook info: {webhook_info}")
+        return webhook_info
+    except Exception as e:
+        logger.error(f"Ошибка при получении информации о webhook: {e}")
+        return {"error": str(e)}
 
 @app.get("/callback")
 async def callback_handler(request: Request):
@@ -110,8 +135,15 @@ async def callback_handler(request: Request):
 # Маршрут для обработки вебхуков
 @app.post("/webhook")
 async def webhook(request: Request) -> None:
-    update = Update.model_validate(await request.json(), context={"bot": bot})
-    await dp.feed_update(bot, update)
+    try:
+        update_data = await request.json()
+        logger.info(f"Получен webhook: {update_data}")
+        update = Update.model_validate(update_data, context={"bot": bot})
+        await dp.feed_update(bot, update)
+        logger.info("Webhook обработан успешно")
+    except Exception as e:
+        logger.error(f"Ошибка при обработке webhook: {e}")
+        raise
 
 def main() -> None:
     run(

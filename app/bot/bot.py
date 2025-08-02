@@ -14,7 +14,27 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import secrets
 import urllib.parse
 
-from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text, create_google_calendar_event, check_token_health
+try:
+    from .handlers import get_upcoming_events, get_calendar_color, create_event_from_text, create_google_calendar_event, check_token_health
+    logger.info("Все функции из handlers успешно импортированы")
+except ImportError as e:
+    logger.error(f"Ошибка импорта из handlers: {e}")
+    # Создаем заглушки для функций
+    async def get_upcoming_events(user_id, num_events=5):
+        return "Ошибка: функции handlers недоступны"
+    
+    async def get_calendar_color(calendar_name: str) -> str:
+        return "⬛️"
+    
+    async def create_event_from_text(user_id, user_text):
+        return "Ошибка: функции handlers недоступны"
+    
+    async def create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id):
+        return False
+    
+    async def check_token_health(user_id):
+        return "error", "Функции handlers недоступны"
+
 from .init_bot import bot, dp
 from app.settings import get_settings
 from .keyboards import get_postpone_time_options_keyboard, get_main_keyboard
@@ -23,7 +43,7 @@ CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), '../../credentials.js
 USER_CREDENTIALS_DIR = "/service/user_credentials"
 
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
@@ -46,6 +66,7 @@ class EventCreation(StatesGroup):
 
 @user_router.message(CommandStart())
 async def start_handler(message: Message):
+    logger.info(f"Получена команда /start от пользователя {message.from_user.id}")
     keyboard = get_main_keyboard()
     await message.answer(
         "Привет! Я ваш помощник для Google Calendar.\n\n"
@@ -55,11 +76,13 @@ async def start_handler(message: Message):
         "• /token_status - Проверить статус авторизации\n\n"
         "Используйте /auth для авторизации и /events для просмотра предстоящих событий.", 
         reply_markup=keyboard)
+    logger.info(f"Отправлен ответ на команду /start пользователю {message.from_user.id}")
 
 
 
 @user_router.message(F.text == '/auth')
 async def auth_handler(message: Message, state: FSMContext):
+    logger.info(f"Получена команда /auth от пользователя {message.from_user.id}")
     user_id = message.from_user.id
     
     # Удаляем старый токен, если он существует
@@ -104,22 +127,24 @@ async def auth_handler(message: Message, state: FSMContext):
     )
 
 
-@dp.callback_query(F.data.startswith("show_postpone_times:"))
+@user_router.callback_query(F.data.startswith("show_postpone_times:"))
 async def show_postpone_times(callback_query: types.CallbackQuery):
     """Handles the callback query to show postpone time options."""
+    logger.info(f"Получен запрос на показ опций отложенного времени от пользователя {callback_query.from_user.id}")
     event_id = int(callback_query.data.split(":")[1])
     keyboard = get_postpone_time_options_keyboard(event_id)
     await callback_query.message.edit_reply_markup(reply_markup=keyboard)
     await callback_query.answer()
 
-@dp.callback_query(F.data.startswith("cancel_postpone:"))
+@user_router.callback_query(F.data.startswith("cancel_postpone:"))
 async def cancel_postpone(callback_query: types.CallbackQuery):
     """Handles the callback query to cancel postponing."""
+    logger.info(f"Получен запрос на отмену отложенного времени от пользователя {callback_query.from_user.id}")
     event_id = int(callback_query.data.split(":")[1])
     await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
     await callback_query.answer("Отложено отменено.")
 
-@dp.callback_query(F.data.startswith("postpone:"))
+@user_router.callback_query(F.data.startswith("postpone:"))
 async def postpone_reminder(callback_query: types.CallbackQuery):
     pass
     # """Handles the callback query for postponing a reminder."""
@@ -148,9 +173,10 @@ async def postpone_reminder(callback_query: types.CallbackQuery):
     #     text=f"Напоминание отложено на {postpone_minutes} минут!",
     # )
 
-@dp.callback_query(F.data == "reauth")
+@user_router.callback_query(F.data == "reauth")
 async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Handles the re-authorization callback."""
+    logger.info(f"Получен запрос на повторную авторизацию от пользователя {callback_query.from_user.id}")
     user_id = callback_query.from_user.id
     
     # Удаляем старый токен, если он существует
@@ -197,18 +223,21 @@ async def reauthorize_handler(callback_query: types.CallbackQuery, state: FSMCon
 
 @user_router.message(F.text == '/events')
 async def events_handler(message: Message):
+    logger.info(f"Получена команда /events от пользователя {message.from_user.id}")
     user_id = message.from_user.id
     events = await get_upcoming_events(user_id)
 
     if isinstance(events, tuple):  # Check if events is tuple(str,InlineKeyboardMarkup)
+        logger.warning(f"Получена ошибка авторизации для пользователя {user_id}")
         await message.answer(events[0], reply_markup=events[1])  # Send the error message with the keyboard
         return
 
-
     if not events:
+        logger.info(f"События не найдены для пользователя {user_id}")
         await message.answer("Предстоящих событий не найдено.")
         return
 
+    logger.info(f"Найдено {len(events)} событий для пользователя {user_id}")
     formatted_events = []
     for calendar_name, event_summary, event_start_time_str in events:
         color = get_calendar_color(calendar_name)
@@ -220,27 +249,32 @@ async def events_handler(message: Message):
         "\n".join(formatted_events),
         parse_mode="HTML"
     )
+    logger.info(f"Отправлен список событий пользователю {user_id}")
 
 
-@dp.message(F.text == "Создать событие")
+@user_router.message(F.text == "Создать событие")
 async def create_event_handler(message: types.Message, state: FSMContext): # Corrected argument type
     """Handles the message for the 'Create Event' button."""
+    logger.info(f"Получен запрос на создание события от пользователя {message.from_user.id}")
     await message.answer( # Corrected to message.answer
         "Пожалуйста, введите детали события:",
     )
     await state.set_state(EventCreation.waiting_for_text)
+    logger.info(f"Установлено состояние ожидания текста для пользователя {message.from_user.id}")
     # No callback_query.answer needed
 
 events_memory = {}
-@dp.message(EventCreation.waiting_for_text)
+@user_router.message(EventCreation.waiting_for_text)
 async def process_event_details(message: types.Message, state: FSMContext):
     """Processes the event details entered by the user."""
+    logger.info(f"Получены детали события от пользователя {message.from_user.id}: {message.text[:50]}...")
     user_id = str(message.from_user.id)  # Получаем ID пользователя
     user_text = message.text
 
     try:
         # Вызываем функцию для создания события из текста
         result = await create_event_from_text(user_id, user_text)
+        logger.info(f"Событие обработано для пользователя {user_id}")
 
         # Create inline keyboard for confirmation
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -254,10 +288,12 @@ async def process_event_details(message: types.Message, state: FSMContext):
             f"\n{result.event_summary}\n{result.date}\n{result.start_time}\n{result.end_time}",
             reply_markup=keyboard
         )
+        logger.info(f"Отправлен предварительный просмотр события пользователю {user_id}")
 
         events_memory[user_id] = result
 
         await state.set_state(EventCreation.waiting_for_commit)
+        logger.info(f"Установлено состояние ожидания подтверждения для пользователя {user_id}")
         # # Отправляем ответ пользователю
         # await message.reply(result)
         event_data = await state.get_data()
@@ -270,15 +306,18 @@ async def process_event_details(message: types.Message, state: FSMContext):
     finally:
         # Сбрасываем состояние
         await state.clear()
+        logger.info(f"Состояние сброшено для пользователя {user_id}")
 
-@dp.callback_query(F.data == "confirm_event")
+@user_router.callback_query(F.data == "confirm_event")
 async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Confirms the event and saves it."""
+    logger.info(f"Получено подтверждение события от пользователя {callback_query.from_user.id}")
 
     user_id = str(callback_query.from_user.id)
     event = events_memory.get(user_id)
     print(event)
     if event is None:
+        logger.error(f"Данные события не найдены для пользователя {user_id}")
         await callback_query.answer("Ошибка: Данные события не найдены.")
         await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
         await state.clear()
@@ -296,14 +335,17 @@ async def confirm_event_handler(callback_query: types.CallbackQuery, state: FSMC
     )
     await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
     if success:
+        logger.info(f"Событие успешно создано для пользователя {user_id}")
         await callback_query.message.answer(f"Событие создано в календаре {event.calendar_name}.")
     else:
+        logger.error(f"Ошибка при создании события для пользователя {user_id}")
         await callback_query.answer("Извините, произошла ошибка при создании события.")
     await state.clear()
 
-@dp.callback_query(F.data == "reject_event")
+@user_router.callback_query(F.data == "reject_event")
 async def reject_event_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """Rejects the event and resets the state."""
+    logger.info(f"Получен отказ от события от пользователя {callback_query.from_user.id}")
     await callback_query.message.edit_reply_markup(reply_markup=None)  # Remove the keyboard
     await callback_query.message.answer("Событие отклонено.")
 
@@ -319,21 +361,26 @@ async def reject_event_handler(callback_query: types.CallbackQuery, state: FSMCo
 
 async def start_bot():
     try:
+        logger.info("Бот запускается...")
         await bot.send_message(settings.admin_id, f'Бот запущен')
-    except:
-        pass
+        logger.info("Бот успешно запущен")
+    except Exception as e:
+        logger.error(f"Ошибка при запуске бота: {e}")
 
 
 async def stop_bot():
     try:
+        logger.info("Бот останавливается...")
         await bot.send_message(settings.admin_id, f'Бот остановлен')
-    except:
-        pass
+        logger.info("Бот успешно остановлен")
+    except Exception as e:
+        logger.error(f"Ошибка при остановке бота: {e}")
 
 
 @user_router.message(F.text == '/token_status')
 async def token_status_handler(message: Message):
     """Handles the token status check command."""
+    logger.info(f"Получена команда /token_status от пользователя {message.from_user.id}")
     user_id = message.from_user.id
     status, message_text = await check_token_health(user_id)
     
@@ -353,4 +400,18 @@ async def token_status_handler(message: Message):
         f"Детали: {message_text}\n\n"
         f"Если у вас возникают проблемы, используйте /auth для повторной авторизации."
     )
+    logger.info(f"Отправлен статус токена пользователю {user_id}: {status}")
+
+
+@user_router.message()
+async def handle_all_messages(message: Message):
+    """Обработчик для всех сообщений (для отладки)"""
+    logger.info(f"Получено сообщение от пользователя {message.from_user.id}: {message.text}")
+    # Не отвечаем на сообщение, просто логируем
+
+@user_router.callback_query()
+async def handle_all_callbacks(callback_query: types.CallbackQuery):
+    """Обработчик для всех callback запросов (для отладки)"""
+    logger.info(f"Получен callback от пользователя {callback_query.from_user.id}: {callback_query.data}")
+    # Не отвечаем на callback, просто логируем
 
