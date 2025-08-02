@@ -5,38 +5,50 @@ import datetime
 from pprint import pprint
 from typing import Optional
 
-from app.main import logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 from aiogram import Bot
 import pytz
+
 try:
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     from googleapiclient.errors import HttpError
+
     logger.info("Google API модули успешно импортированы")
 except ImportError as e:
     logger.error(f"Ошибка импорта Google API модулей: {e}")
+
+
     # Создаем заглушки
     class MockRequest:
         pass
-    
+
+
     class MockCredentials:
         def __init__(self):
             self.expired = False
             self.refresh_token = "mock_refresh_token"
             self.expiry = None
-        
+
         def to_json(self):
             return '{"mock": "credentials"}'
-    
+
+
     class MockHttpError(Exception):
         def __init__(self, resp):
             self.resp = resp
-    
+
+
     Request = MockRequest
     Credentials = MockCredentials
     HttpError = MockHttpError
-    build = lambda service, version, credentials=None: type('MockService', (), {'calendarList': lambda: type('MockCalendarList', (), {'list': lambda: type('MockList', (), {'execute': lambda: {'items': []}})()})(), 'events': lambda: type('MockEvents', (), {'list': lambda: type('MockList', (), {'execute': lambda: {'items': []}})()})()})()
+    build = lambda service, version, credentials=None: type('MockService', (), {
+        'calendarList': lambda: type('MockCalendarList', (),
+                                     {'list': lambda: type('MockList', (), {'execute': lambda: {'items': []}})()})(),
+        'events': lambda: type('MockEvents', (),
+                               {'list': lambda: type('MockList', (), {'execute': lambda: {'items': []}})()})()})()
 from dataclasses import dataclass, asdict
 
 from langchain.prompts import PromptTemplate
@@ -65,9 +77,11 @@ try:
 except Exception as e:
     logger.error(f"Ошибка инициализации LLM: {e}")
     # Создаем заглушку для LLM
-    llm = type('MockLLM', (), {'invoke': lambda self, prompt: type('MockResponse', (), {'content': '{"event_summary": "Тестовое событие", "event_description": "Описание", "date": "2024-01-01", "start_time": "10:00", "end_time": "11:00"}'})()})()
+    llm = type('MockLLM', (), {'invoke': lambda self, prompt: type('MockResponse', (), {
+        'content': '{"event_summary": "Тестовое событие", "event_description": "Описание", "date": "2024-01-01", "start_time": "10:00", "end_time": "11:00"}'})()})()
 DEFAULT_CALENDAR_ID = 'primary'
 LOCAL_TIMEZONE = pytz.timezone('Europe/Moscow')
+
 
 async def get_calendar_color(calendar_name: str) -> str:
     """
@@ -83,6 +97,7 @@ async def get_calendar_color(calendar_name: str) -> str:
     }
     return calendar_colors.get(calendar_name, "⬛️")  # Default color
 
+
 async def get_creds(user_id):
     creds = None
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
@@ -92,7 +107,7 @@ async def get_creds(user_id):
             creds = Credentials.from_authorized_user_file(token_path, settings.scopes)
             logger.info(f"Срок действия токена из файла: {creds.expiry}")
             logger.info(f"Текущее время UTC: {datetime.datetime.now(pytz.utc)}")
-            
+
             if creds.expired:
                 logger.info(f"Токен истек для пользователя {user_id}, пытаемся обновить")
                 if creds.refresh_token:
@@ -111,7 +126,7 @@ async def get_creds(user_id):
                     creds = None
             else:
                 logger.info(f"Токен все еще действителен для пользователя {user_id}")
-                
+
         except Exception as e:
             logger.error(f"Ошибка загрузки учетных данных из файла для пользователя {user_id}: {e}")
             if os.path.exists(token_path):
@@ -119,10 +134,11 @@ async def get_creds(user_id):
             creds = None
     return creds
 
+
 async def get_calendar_service(user_id):
     creds = await get_creds(user_id)
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
-    
+
     if not creds:
         logger.warning(f"Действительные учетные данные не найдены для пользователя {user_id}")
         return ("Пожалуйста, сначала авторизуйте бота для доступа к вашему Google Calendar.", get_auth_keyboard())
@@ -167,6 +183,7 @@ async def get_calendar_service(user_id):
         logger.error(f"Неожиданная ошибка при создании сервиса календаря для пользователя {user_id}: {error}")
         return None
 
+
 async def get_calendar_list(service):
     """
     Gets the list of calendars for the user.
@@ -178,6 +195,7 @@ async def get_calendar_list(service):
     except HttpError as error:
         logger.error(f"Произошла ошибка: {error}")
         return []
+
 
 async def get_events_from_calendar(service, calendar_id, num_events=5):
     """
@@ -194,15 +212,17 @@ async def get_events_from_calendar(service, calendar_id, num_events=5):
         logger.error(f"Произошла ошибка: {error}")
         return []
 
+
 # Функция для сохранения учетных данных пользователя (OAuth2 flow)
 async def save_credentials(user_id, credentials):
     os.makedirs(USER_CREDENTIALS_DIR, exist_ok=True)
     token_path = os.path.join(USER_CREDENTIALS_DIR, f'token_{user_id}.json')
-    
+
     # Проверяем, что у нас есть refresh токен
     if not credentials.refresh_token:
-        logger.warning(f"Refresh токен не получен для пользователя {user_id}. Это может вызвать проблемы с авторизацией позже.")
-    
+        logger.warning(
+            f"Refresh токен не получен для пользователя {user_id}. Это может вызвать проблемы с авторизацией позже.")
+
     try:
         with open(token_path, 'w') as token:
             token.write(credentials.to_json())
@@ -213,17 +233,18 @@ async def save_credentials(user_id, credentials):
         logger.error(f"Не удалось сохранить учетные данные для пользователя {user_id}: {e}")
         raise
 
+
 async def get_upcoming_events(user_id, num_events=5):
     service = await get_calendar_service(user_id)
 
-    if isinstance(service, tuple): #If response is tuple
+    if isinstance(service, tuple):  # If response is tuple
         return service
-    
+
     all_events = []
-    
+
     try:
         calendars = await get_calendar_list(service)
-        
+
         if not calendars:
             return "Календари не найдены или не удалось получить список календарей."
 
@@ -241,12 +262,13 @@ async def get_upcoming_events(user_id, num_events=5):
                     else:
                         local_start_time = start_datetime.astimezone(LOCAL_TIMEZONE)
                     all_events.append((calendar_name, event['summary'], local_start_time.strftime('%Y-%m-%d %H:%M')))
-                    
+
     except Exception as e:
         logger.error(f"Произошла ошибка при получении списка календарей: {e}")
         return []
 
     return all_events
+
 
 async def send_event_reminders(bot: Bot):
     """
@@ -254,21 +276,21 @@ async def send_event_reminders(bot: Bot):
     """
     # Get the list of user IDs from the credentials directory
     user_ids = await get_all_user_ids()
-    
+
     if not user_ids:
         logger.info("Нет авторизованных пользователей для отправки напоминаний")
         return
 
-    now = datetime.datetime.now(LOCAL_TIMEZONE)# Замените на ваш часовой пояс
+    now = datetime.datetime.now(LOCAL_TIMEZONE)  # Замените на ваш часовой пояс
 
     for user_id in user_ids:
         upcoming_events = await get_upcoming_events(user_id, num_events=5)
-        
+
         # Проверяем, что upcoming_events является списком, а не строкой ошибки или кортежем
         if isinstance(upcoming_events, (str, tuple)):
             logger.warning(f"Ошибка получения событий для пользователя {user_id}: {upcoming_events}")
             continue
-            
+
         for calendar_name, event_summary, event_start_time_str in upcoming_events:
             color = get_calendar_color(calendar_name)
 
@@ -286,20 +308,22 @@ async def send_event_reminders(bot: Bot):
                     minutes = total_minutes % 60
                     time_string = f"{hours} часов {minutes} минут"
                 await bot.send_message(chat_id=user_id,
-                                       text=f"<b>Напоминание: </b> {color} {event_summary} начнется через {time_string}", parse_mode="HTML", reply_markup=get_postpone_keyboard(event_id=1)) #TODO
+                                       text=f"<b>Напоминание: </b> {color} {event_summary} начнется через {time_string}",
+                                       parse_mode="HTML", reply_markup=get_postpone_keyboard(event_id=1))  # TODO
                 logger.info(f"Напоминание отправлено пользователю {user_id} для события {event_summary}")
+
 
 async def get_all_user_ids():
     """
     Gets all user IDs by listing files in the credentials directory.
     """
     user_ids = []
-    
+
     # Проверяем, существует ли директория
     if not os.path.exists(USER_CREDENTIALS_DIR):
         logger.warning(f"Директория учетных данных не существует: {USER_CREDENTIALS_DIR}")
         return user_ids
-        
+
     for filename in os.listdir(USER_CREDENTIALS_DIR):
         if filename.startswith('token_') and filename.endswith('.json'):
             try:
@@ -308,6 +332,7 @@ async def get_all_user_ids():
             except ValueError:
                 logger.warning(f"Некорректное имя файла в директории учетных данных: {filename}")
     return user_ids
+
 
 @dataclass
 class EventDetails:
@@ -319,15 +344,17 @@ class EventDetails:
     calendar_id: Optional[str] = None
     calendar_name: Optional[str] = None
 
+
 # Функция для создания события в Google Calendar
-async def create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time, calendar_id=DEFAULT_CALENDAR_ID):
+async def create_google_calendar_event(user_id, event_summary, event_description, start_time, end_time,
+                                       calendar_id=DEFAULT_CALENDAR_ID):
     """
     Creates an event in Google Calendar.
     """
     creds = await get_creds(user_id)
     if creds is None:
-      logger.error("Не удалось получить учетные данные для пользователя.")
-      return False  # Или выбросить исключение
+        logger.error("Не удалось получить учетные данные для пользователя.")
+        return False  # Или выбросить исключение
 
     try:
         service = build('calendar', 'v3', credentials=creds)
@@ -394,20 +421,20 @@ async def create_event_from_text(user_id, user_text):
 
     try:
         event_data = json.loads(response_content)
-        
+
         # Проверяем, что все необходимые поля присутствуют
         required_fields = ['event_summary', 'event_description', 'date', 'start_time', 'end_time']
         for field in required_fields:
             if field not in event_data:
                 logger.error(f"Отсутствует обязательное поле в ответе LLM: {field}")
                 return "Извините, произошла ошибка при обработке деталей события. Пожалуйста, попробуйте снова."
-        
+
         # Проверяем, что все поля являются строками
         for field in required_fields:
             if not isinstance(event_data[field], str):
                 logger.error(f"Поле {field} не является строкой: {type(event_data[field])}")
                 return "Извините, произошла ошибка при обработке деталей события. Пожалуйста, попробуйте снова."
-        
+
         try:
             event_details = EventDetails(**event_data)
         except TypeError as e:
@@ -416,7 +443,7 @@ async def create_event_from_text(user_id, user_text):
         except Exception as e:
             logger.error(f"Неожиданная ошибка при создании EventDetails: {e}")
             return "Извините, произошла ошибка при обработке деталей события. Пожалуйста, попробуйте снова."
-        
+
         print(asdict(event_details))  # Вывод в виде словаря
 
         event_summary = event_details.event_summary
@@ -468,7 +495,7 @@ async def create_event_from_text(user_id, user_text):
 
         service = build('calendar', 'v3', credentials=creds)
         available_calendars = await get_calendar_list(service)
-        
+
         if not available_calendars:
             logger.warning(f"Не найдено доступных календарей для пользователя {user_id}")
             # Используем календарь по умолчанию
@@ -480,7 +507,8 @@ async def create_event_from_text(user_id, user_text):
             print('\n')
             print(calendar_id)
             print('\n')
-            calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id), "Стандартный")
+            calendar_name = next((cal['summary'] for cal in available_calendars if cal['id'] == calendar_id),
+                                 "Стандартный")
             if not calendar_id:
                 calendar_id = DEFAULT_CALENDAR_ID
                 calendar_name = 'Стандартный'
@@ -552,8 +580,9 @@ async def choose_calendar(event_summary, event_description, available_calendars)
 
     # 4. Запуск LLM Chain
     try:
-        chosen_calendar_name = llm_chain.run({"event_summary": event_summary, "event_description": event_description, "calendar_list": calendar_list_str})
-        chosen_calendar_name = chosen_calendar_name.strip()  #Удалите лишние пробелы
+        chosen_calendar_name = llm_chain.run({"event_summary": event_summary, "event_description": event_description,
+                                              "calendar_list": calendar_list_str})
+        chosen_calendar_name = chosen_calendar_name.strip()  # Удалите лишние пробелы
     except Exception as e:
         logger.error(f"Ошибка при выборе календаря: {e}")
         return DEFAULT_CALENDAR_ID
@@ -572,6 +601,7 @@ async def choose_calendar(event_summary, event_description, available_calendars)
     logger.warning(f"Календарь '{chosen_calendar_name}' не найден. Используется календарь по умолчанию.")
     return DEFAULT_CALENDAR_ID  # Если не нашли, возвращаем стандартный
 
+
 async def check_token_health(user_id):
     """
     Проверяет состояние токена пользователя и возвращает информацию о его здоровье.
@@ -579,10 +609,10 @@ async def check_token_health(user_id):
     creds = await get_creds(user_id)
     if not creds:
         return "no_token", "Токен не найден"
-    
+
     if not creds.refresh_token:
         return "no_refresh", "Refresh токен недоступен"
-    
+
     if creds.expired:
         try:
             creds.refresh(Request())
@@ -594,27 +624,28 @@ async def check_token_health(user_id):
         except Exception as e:
             logger.error(f"Не удалось обновить токен для пользователя {user_id}: {e}")
             return "refresh_failed", f"Не удалось обновить токен: {e}"
-    
+
     # Проверяем, сколько времени осталось до истечения токена
     time_until_expiry = creds.expiry - datetime.datetime.now(pytz.utc)
     if time_until_expiry.total_seconds() < 3600:  # Меньше часа
         return "expiring_soon", f"Токен истекает через {int(time_until_expiry.total_seconds() / 60)} минут"
-    
+
     return "healthy", "Токен в порядке"
+
 
 async def monitor_tokens(bot: Bot):
     """
     Мониторит состояние токенов всех пользователей и уведомляет о проблемах.
     """
     user_ids = await get_all_user_ids()
-    
+
     if not user_ids:
         logger.info("Нет авторизованных пользователей для мониторинга токенов")
         return
-    
+
     for user_id in user_ids:
         status, message = await check_token_health(user_id)
-        
+
         if status in ["no_token", "no_refresh", "refresh_failed"]:
             try:
                 await bot.send_message(
@@ -626,7 +657,7 @@ async def monitor_tokens(bot: Bot):
                 logger.warning(f"Проблема со здоровьем токена для пользователя {user_id}: {message}")
             except Exception as e:
                 logger.error(f"Не удалось отправить уведомление о проблеме с токеном пользователю {user_id}: {e}")
-        
+
         elif status == "expiring_soon":
             try:
                 await bot.send_message(
