@@ -221,7 +221,7 @@ async def events_handler(message: Message):
     logger.info(f"Найдено {len(events)} событий для пользователя {user_id}")
     formatted_events = []
     for calendar_name, event_summary, event_start_time_str in events:
-        color = get_calendar_color(calendar_name)
+        color = await get_calendar_color(calendar_name)
         formatted_events.append(
             f"{color} <b>{calendar_name}:</b> {event_summary} - {event_start_time_str}\n"
         )
