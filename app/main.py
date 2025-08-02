@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Ошибка при настройке webhook: {e}")
     await start_bot()
-    scheduler.add_job(send_event_reminders, "interval", hours=1, args=(bot,))
+    scheduler.add_job(send_event_reminders, "interval", minutes=int(settings.default_remind_time), args=(bot,))
     scheduler.add_job(monitor_tokens, "interval", hours=6, args=(bot,))  # Проверяем токены каждые 6 часов
     scheduler.start()
     logger.info("Планировщик запущен")

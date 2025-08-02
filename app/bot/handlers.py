@@ -292,7 +292,7 @@ async def send_event_reminders(bot: Bot):
             continue
 
         for calendar_name, event_summary, event_start_time_str in upcoming_events:
-            color = get_calendar_color(calendar_name)
+            color = await get_calendar_color(calendar_name)
 
             event_start_time = datetime.datetime.strptime(event_start_time_str, '%Y-%m-%d %H:%M')
             event_start_time = LOCAL_TIMEZONE.localize(event_start_time)

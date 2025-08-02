@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     is_debug: str
     admin_id: str
     gigachat_key: str
+    default_remind_time: str
 
     @property
     def scopes(self):
